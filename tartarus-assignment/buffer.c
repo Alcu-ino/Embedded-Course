@@ -16,18 +16,17 @@ Buffer* initialize(size_t capacity){
 
 uint8_t add(Buffer* buffer, int32_t value){
     while(buffer->data == NULL){
-        buffer->data = (int32_t*) malloc(buffer->capacity * sizeof(int32_t));
-    }
-    if (buffer->size == buffer->capacity-1 ){
-        return OK_PIENO;
+        buffer->data = (uint32_t*) malloc(buffer->capacity * sizeof(uint32_t));
     }
     buffer->data[buffer->size] = value;
     buffer->size++;
+    if (buffer->size == buffer->capacity){
+        return OK_PIENO;
+    }
     return OK;
 }
 
 uint8_t reset(Buffer* buffer){
-    buffer -> data = NULL;
     buffer -> size = 0;
     return 0;
 }

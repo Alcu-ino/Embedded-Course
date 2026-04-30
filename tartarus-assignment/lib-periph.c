@@ -18,14 +18,16 @@ uint8_t foo_periph_init(volatile periphReg* perifReg, uint8_t tx_pin, uint8_t rx
             return ERR_TOO_LONG_WAIT;
         }
     }
-
-    perifReg->CTRL.READ = 0;
-    perifReg->CTRL.WRITE = 0;
+    
     if(((rx_pin>=32) && (rx_pin<=143))&&((tx_pin>=32) && (tx_pin<=143))&& rx_pin!=tx_pin){
         perifReg->CTRL.RX = tx_pin;
         perifReg->CTRL.TX = rx_pin;
         return 0;
     }
+    
+    perifReg->CTRL.READ = 0;
+    perifReg->CTRL.WRITE = 0;
+    
     return INVALID_PIN;
 }
 

@@ -25,6 +25,7 @@ void main()
 	MCU_STEP;
 	uint32_t read = 0;
 	MCU_STEP;
+	uint64_t sum = 0;
 	uint32_t mea = 0;
 	MCU_STEP;
 	printf("Hello Tartarus MCU world!\n");
@@ -70,18 +71,21 @@ void main()
 		}
 
 		read = foo_periph_rx_data(MY_REG);
-		printf("READ : %d\n", read);
+		printf("READ : %u\n", read);
 		MCU_STEP;
 		if(add(buffer, read) == 1){
 			MCU_STEP;
+			sum = 0;
 			for(size_t i = 0; i < buffer->size; i++)
 			{
 				MCU_STEP;
-				mea += (buffer->data[i])/(buffer->capacity);
+				sum += (buffer->data[i]);
 				MCU_STEP;
 			}
 			MCU_STEP;
-			printf("MEAN : %d\n",mea);
+			mea = sum/(buffer->capacity);
+			MCU_STEP;
+			printf("MEAN : %u\n",mea);
 			while(MY_REG->CTRL.BUSY == 1){
 				MCU_STEP;
 				printf("ATTENDO DISPONIBILITA PER WRITE DELLA MEAN\n");
