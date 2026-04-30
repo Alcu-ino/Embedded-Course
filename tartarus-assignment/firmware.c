@@ -1,4 +1,4 @@
-/* Author: Cafagno Vito
+/* Author: Abadessa Lorenzo, Cafagno Vito, Dargenio Ferdinando, Fornarelli Marco  
  * This source is part of the Tatarus MCU assignment for the 
  * Embedded Control course at POLIBA. 
  */
