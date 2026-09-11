@@ -18,7 +18,10 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-
+#include "stdio.h"
+#define CPR ((uint32_t)600)
+#define RES ((uint32_t)2)
+#define COUNT_PER_REV ((uint32_t)CPR*RES)
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
@@ -45,6 +48,7 @@ TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
 
 UART_HandleTypeDef huart2;
+
 
 /* USER CODE BEGIN PV */
 
@@ -74,6 +78,7 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
+	int32_t degs;
 
   /* USER CODE END 1 */
 
@@ -99,6 +104,7 @@ int main(void)
   MX_TIM2_Init();
   MX_TIM3_Init();
   MX_USART2_UART_Init();
+  HAL_TIM_Encoder_Start(&htim1, TIM_CHANNEL_ALL);
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */
@@ -107,6 +113,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	 degs = (int32_t)(TIM1->CNT)/((int32_t)(RES*CPR))*360;
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
