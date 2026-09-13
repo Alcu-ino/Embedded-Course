@@ -1,5 +1,6 @@
 #include "encoder.h"
 #include "main.h"
+#include "math.h"
 
 void reset_Encoder(Encoder_HandleTypeDef *encoder, uint32_t cpr, uint8_t res, float t){
     encoder->ts = t;
