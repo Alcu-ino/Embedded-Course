@@ -1,3 +1,9 @@
+/*
+ * motor.c
+ *
+ *  Created on: 13 set 2026
+ *      Author: vito
+ */
 #include <stdlib.h>
 #include <stdio.h>
 #include "stm32f4xx.h"

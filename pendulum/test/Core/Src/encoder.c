@@ -1,3 +1,9 @@
+/*
+ * motor.c
+ *
+ *  Created on: 13 set 2026
+ *      Author: vito
+ */
 #include "encoder.h"
 #include "main.h"
 #include "math.h"

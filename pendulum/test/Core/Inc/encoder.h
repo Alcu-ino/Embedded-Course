@@ -1,3 +1,9 @@
+/*
+ * motor.c
+ *
+ *  Created on: 13 set 2026
+ *      Author: vito
+ */
 #include "stdint.h"
 
 #define Ts 0.001

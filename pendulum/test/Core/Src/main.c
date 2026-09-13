@@ -98,6 +98,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
   HAL_TIM_Encoder_Start(&htim1, TIM_CHANNEL_ALL);
   init_Encoder(&encoder, CPR, RES, Ts);
+  //HAL_TIM_Base_Start_IT(&htim3); IL TIMER PARTE CON IL COMANDO DEL MOTORE E SI STOPPA QUANDO FINISCE
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -106,6 +107,7 @@ int main(void)
   {
 	update_Encoder(&encoder);
     /* USER CODE END WHILE */
+
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
@@ -381,7 +383,17 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+    if (htim->Instance == TIM3)
+    {
+    	HAL_TIM_PWM_Stop(&htim2, TIM_CHANNEL_1);
+    	HAL_TIM_Base_Stop_IT(&htim3);
+        printf("STEP TOTALI ESEGUITI");
+    }else{
+    	printf("HAI SBAGLIATO QUALCOSA");
+    }
+}
 /* USER CODE END 4 */
 
 /**
