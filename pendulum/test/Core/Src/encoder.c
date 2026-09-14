@@ -31,8 +31,8 @@ void init_Encoder(Encoder_HandleTypeDef *encoder, uint32_t cpr, uint8_t res, flo
 void update_Encoder(Encoder_HandleTypeDef *encoder){
     encoder->prev_angle = encoder->angle;
     encoder->angle = (float)TIM1->CNT * 360 / (float)(encoder->cpr * encoder->res);
-    float delta= encoder->angle - encoder->prev_angle;
-    float delta_angle = atan2f(sinf(delta), cosf(delta));
+    volatile float delta= encoder->angle - encoder->prev_angle;
+    volatile float delta_angle = atan2f(sinf(delta), cosf(delta));
     encoder->w = delta_angle / encoder->ts;
     encoder->a = 0;
 };
