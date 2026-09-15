@@ -105,7 +105,7 @@ int main(void)
   MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_Encoder_Start(&htim1, TIM_CHANNEL_ALL);
-  HAL_TIM_Base_Start_IT(&htim3); //VA Riarmato?
+  HAL_TIM_Base_Start_IT(&htim3);
 
   init_Encoder(&encoder, CPR, RES, Tc);
   drv_init(&drv, 1, M0_GPIO_Port, M0_Pin, M1_GPIO_Port, M1_Pin, M2_GPIO_Port, M2_Pin, DIR_GPIO_Port, DIR_Pin, RST_SLP_GPIO_Port, RST_SLP_Pin);
@@ -121,9 +121,7 @@ int main(void)
   {
     /* USER CODE END WHILE */
     /* USER CODE BEGIN 3 */
-	  test_acc =  1000;   HAL_Delay(1000);
-	  test_acc = -1000;   HAL_Delay(1000);
-	  test_acc =     0;   HAL_Delay(5000);
+	  test_acc =  +1000;   HAL_Delay(1000);
   }
   /* USER CODE END 3 */
 }

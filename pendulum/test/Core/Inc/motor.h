@@ -65,7 +65,7 @@ typedef struct {
     drv_t *drv; /* Pointer to the driver */
     motor_t *motor; /* Pointer to motor */
     motion_state_t state;
-    uint32_t fcurrent;/* Motion state */
+    int32_t fcurrent;/* Motion state */
     uint8_t pwm_on; /* PWM is running [boolean] */
 } motor_drv_t;
 

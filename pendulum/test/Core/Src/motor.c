@@ -61,7 +61,7 @@ void motor_acc(float acc, motor_drv_t *motor_drv){ //acc è in step/s^2
     float fs = motor_drv->motor->fs;
     float fmin = FMIN(fclk, psc);
 
-    float v = motor_drv->fcurrent + acc/fs; // incremento della velocità in base all'accelerazione e al tempo di campionamento
+    float v = (float)(motor_drv->fcurrent) + acc/fs; // UNSIGNED FCURRENT NON VA A DESTRA SIGNED RUMORE STRANO, CORRENTE 0.082 incremento della velocità in base all'accelerazione e al tempo di campionamento
     if (v >=  fmax) v = fmax;
     if (v <= -fmax) v = -fmax;
 
