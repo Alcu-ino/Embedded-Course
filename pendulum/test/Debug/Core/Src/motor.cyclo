@@ -1,0 +1,6 @@
+../Core/Src/motor.c:9:6:drv_set_microsteps	1
+../Core/Src/motor.c:16:6:drv_init	1
+../Core/Src/motor.c:30:6:drv_set_direction	1
+../Core/Src/motor.c:35:6:motor_init	1
+../Core/Src/motor.c:43:6:motor_drv_init	1
+../Core/Src/motor.c:51:6:motor_acc	11

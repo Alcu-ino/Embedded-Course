@@ -105,7 +105,7 @@ int main(void)
   MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_Encoder_Start(&htim1, TIM_CHANNEL_ALL);
-  init_Encoder(&encoder, CPR, RES, Ts);
+  init_Encoder(&encoder, CPR, RES, Tc);
   drv_init(&drv, 1, M0_GPIO_Port, M0_Pin, M1_GPIO_Port, M1_Pin, M2_GPIO_Port, M2_Pin, DIR_GPIO_Port, DIR_Pin, RST_SLP_GPIO_Port, RST_SLP_Pin);
   
   motor_init(&motor, STEPS_PER_REV, &htim2, TIM_CHANNEL_1, FMAXmotor, Fclk,Fs);
@@ -118,10 +118,10 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-    test_acc =  1000;   HAL_Delay(2000);   // accelera CW per 2 s
-    test_acc = -1000;   HAL_Delay(2000);   // inverti: decelera, poi accelera CCW
-    test_acc =     0;   HAL_Delay(2000);   // niente acc: la velocità resta costante
     /* USER CODE BEGIN 3 */
+	  test_acc =  1000;   HAL_Delay(1000);
+	  test_acc = -1000;   HAL_Delay(1000);
+	  test_acc =     0;   HAL_Delay(5000);
   }
   /* USER CODE END 3 */
 }
