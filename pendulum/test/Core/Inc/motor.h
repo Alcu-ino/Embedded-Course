@@ -4,6 +4,9 @@
  *  Created on: 13 set 2026
  *      Author: vito
  */
+#include "encoder.h"
+#define FMIN 8*1000000
+#define PSC 666
 typedef enum {
     DIRECTION_CW=0,
     DIRECTION_CCW=1
@@ -11,9 +14,9 @@ typedef enum {
 
 typedef struct {
     uint16_t steps_per_rev;
-    TIM_HandleTypeDef *step_htim; /* STEP timer */
-    uint32_t step_tim_clk; /* Timer clock frequency in Hz*/
-    uint32_t step_tim_channel; /* Timer channel */
+    TIM_HandleTypeDef *htim_PWM; /* STEP timer */
+    uint32_t fclk;
+    uint32_t tim_channel; /* Timer channel */
 } motor_t;
 
 
@@ -67,4 +70,3 @@ void drv_set_direction(drv_t *drv, direction_t dir);
 void motor_init(motor_t *motor, uint16_t steps_per_rev, TIM_HandleTypeDef *step_htim, uint32_t step_tim_clk, uint32_t step_tim_channel);
 void motor_drv_init(motor_drv_t *motor_drv, drv_t *drv, motor_t *motor);
 void motor_drv_set_target_rpm(motor_drv_t *motor_drv, float target_rpm);
-void motor_drv_update(motor_drv_t *motor_drv);

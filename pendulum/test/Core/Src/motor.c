@@ -4,7 +4,6 @@
  *  Created on: 13 set 2026
  *      Author: vito
  */
- #include "encoder.h"
 
 void drv_set_microsteps(drv_t *drv, drv_microstep_t microsteps){
     drv->microsteps = microsteps;
@@ -37,7 +36,7 @@ void motor_init(motor_t *motor, uint16_t steps_per_rev, TIM_HandleTypeDef *step_
     motor->fmax = fmax;
     motor->step_htim = step_htim;
     motor->step_tim_clk = step_tim_clk;
-    motor->step_tim_channel = step_tim_channel;
+    motor->tim_channel = step_tim_channel;
 }
 void motor_drv_init(motor_drv_t *motor_drv, drv_t *drv, motor_t *motor){
     motor_drv->drv = drv;
@@ -47,38 +46,41 @@ void motor_drv_init(motor_drv_t *motor_drv, drv_t *drv, motor_t *motor){
     motor_drv->pwm_on = 0;
 }
 
-void motor_acc(float acc){
+void motor_acc(float acc, motor_drv_t *motor_drv){
+    uint32_t arr;
+    uint32_t ccr;
+    TIM_HandleTypeDef htim = *(motor_drv->motor->htim_PWM);
     float v = motor_drv->fcurrent + acc * Tc;
     float fmax = motor_drv->motor->fmax;
 
-    if (v >=  fmax)? v = fmax: v;
-    if (v <= -fmax) v = -fmax: v;
+    if (v >=  fmax)? v = fmax: v=v;
+    if (v <= -fmax)? v = -fmax: v=v;
 
     // direzione dal segno della VELOCITÀ (non di acc)
     if      (v > 0) drv_set_direction(motor_drv->drv, DIRECTION_CW);
     else if (v < 0) drv_set_direction(motor_drv->drv, DIRECTION_CCW);
     // se v == 0 lascio l'ultima direzione, tanto sto per fermarmi
     motor_drv->fcurrent = v;
-    float fmag = fabsf(v);
+    float F = fabsf(v);
 
     // sotto fmin: fermo l'uscita, niente calcolo ARR (evita /0)
-    if (fmag < FMIN) {
+    if (F < FMIN) {
         motor_drv->state = MOTOR_DRV_STOPPED;
-        __HAL_TIM_DISABLE(&HTIM_STEP);   // oppure HAL_TIM_PWM_Stop(...)
+        HAL_TIM_PWM_Stop(&htim);
+        motor_drv->pwm_on = 0;
         return;
     }
 
-    motor_drv->state = (acc >= 0) ? MOTOR_DRV_ACCEL : MOTOR_DRV_DECEL; // solo bookkeeping
+    motor_drv->state = (acc >= 0) ? MOTOR_DRV_ACCEL : MOTOR_DRV_DECEL;
+    arr = (uint32_t)((float)(motor_drv->fcurrent / motor_drv->motor->fclk) * (motor_drv->motor->PSC + 1) - 1);
+    ccr = arr / 2;
+    
+    __HAL_TIM_SET_AUTORELOAD(&htim, arr);
+    __HAL_TIM_SET_COMPARE(&htim, TIM_CHANNEL_1, ccr);
+    htim.Instance->EGR = TIM_EGR_UG;
 
-    // f_step = 84e6 / ((PSC+1)(ARR+1))  ->  ARR = 84e6/((PSC+1)*fmag) - 1
-    uint32_t period = (uint32_t)((TIMER_CLK / ((float)(PSC + 1) * fmag)) + 0.5f);
-    uint32_t arr = period - 1U;
-
-    __HAL_TIM_SET_AUTORELOAD(&HTIM_STEP, arr);
-    __HAL_TIM_SET_COMPARE(&HTIM_STEP, STEP_CHANNEL, arr / 2U); // duty 50%, o larghezza fissa ~2µs
-    // se il timer era fermo, riavvialo qui
+    if motor_drv->pwm_on == 0 {
+        HAL_TIM_PWM_Start(&htim, motor_drv->motor->tim_channel);
+    }
+    motor_drv->pwm_on = 1;
 }
-
-void motor_drv_update(motor_drv_t *motor_drv){};//pwm on off, forse questa funzione non serve
-//RICORDATI DI CHIARIRE A COSA SERVE LO SCOPO DEL TIMER SLAVE
-//VEDI BENE LE FUNZIONI DEI TIMER
