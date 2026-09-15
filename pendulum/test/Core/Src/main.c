@@ -22,6 +22,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "encoder.h"
+#include "motor.h"
 #include "debug.h"
 /* USER CODE END Includes */
 
@@ -32,6 +33,10 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define Fclk 84000000
+#define Fs 1000 //1/2pi radq(g/l)
+#define STEPS_PER_REV 200
+#define FMAXmotor 20000 //DRV8825 8V [Hz]
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -42,9 +47,14 @@
 /* Private variables ---------------------------------------------------------*/
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
+TIM_HandleTypeDef htim3;
 
 /* USER CODE BEGIN PV */
-
+drv_t drv;
+motor_t motor;
+motor_drv_t motor_drv;
+Encoder_HandleTypeDef encoder;
+volatile float test_acc = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -52,6 +62,7 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_TIM2_Init(void);
+static void MX_TIM3_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -69,7 +80,6 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-  Encoder_HandleTypeDef encoder;
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -92,9 +102,14 @@ int main(void)
   MX_GPIO_Init();
   MX_TIM1_Init();
   MX_TIM2_Init();
+  MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_Encoder_Start(&htim1, TIM_CHANNEL_ALL);
   init_Encoder(&encoder, CPR, RES, Ts);
+  drv_init(&drv, 1, M0_GPIO_Port, M0_Pin, M1_GPIO_Port, M1_Pin, M2_GPIO_Port, M2_Pin, DIR_GPIO_Port, DIR_Pin, RST_SLP_GPIO_Port, RST_SLP_Pin);
+  
+  motor_init(&motor, STEPS_PER_REV, &htim2, TIM_CHANNEL_1, FMAXmotor, Fclk,Fs);
+  motor_drv_init(&motor_drv, &drv, &motor);
   //HAL_TIM_Base_Start_IT(&htim3); IL TIMER PARTE CON IL COMANDO DEL MOTORE E SI STOPPA QUANDO FINISCE
   /* USER CODE END 2 */
 
@@ -102,9 +117,10 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	update_Encoder(&encoder);
     /* USER CODE END WHILE */
-
+    test_acc =  1000;   HAL_Delay(2000);   // accelera CW per 2 s
+    test_acc = -1000;   HAL_Delay(2000);   // inverti: decelera, poi accelera CCW
+    test_acc =     0;   HAL_Delay(2000);   // niente acc: la velocità resta costante
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
@@ -267,6 +283,51 @@ static void MX_TIM2_Init(void)
 }
 
 /**
+  * @brief TIM3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM3_Init(void)
+{
+
+  /* USER CODE BEGIN TIM3_Init 0 */
+
+  /* USER CODE END TIM3_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM3_Init 1 */
+
+  /* USER CODE END TIM3_Init 1 */
+  htim3.Instance = TIM3;
+  htim3.Init.Prescaler = 83;
+  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim3.Init.Period = 999;
+  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM3_Init 2 */
+
+  /* USER CODE END TIM3_Init 2 */
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -334,17 +395,14 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-/**void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
     if (htim->Instance == TIM3)
     {
-    	HAL_TIM_PWM_Stop(&htim2, TIM_CHANNEL_1);
-    	HAL_TIM_Base_Stop_IT(&htim3);
-        printf("STEP TOTALI ESEGUITI");
-    }else{
-    	printf("HAI SBAGLIATO QUALCOSA");
+      update_Encoder(&encoder);
+      motor_acc(test_acc, &motor_drv);
     }
-}**/
+}
 /* USER CODE END 4 */
 
 /**

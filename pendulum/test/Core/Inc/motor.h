@@ -5,8 +5,9 @@
  *      Author: vito
  */
 #include "encoder.h"
-#define FMIN 8*1000000
-#define PSC 666
+#define ARRMAX 0xFFFFFFFFUL
+#define FMIN(fclk,psc) ((float)(fclk) / (((float)(psc) + 1.0f) * ((float)ARRMAX)))
+
 typedef enum {
     DIRECTION_CW=0,
     DIRECTION_CCW=1
@@ -16,6 +17,7 @@ typedef struct {
     uint16_t steps_per_rev;
     TIM_HandleTypeDef *htim_PWM; /* STEP timer */
     uint32_t fclk;
+    uint32_t fs;
     uint32_t tim_channel; /* Timer channel */
 } motor_t;
 
@@ -67,6 +69,6 @@ void drv_init(drv_t *drv, drv_microstep_t microsteps, GPIO_TypeDef *m0_port, uin
 void drv_set_microsteps(drv_t *drv, drv_microstep_t microsteps);
 void drv_set_direction(drv_t *drv, direction_t dir);
 
-void motor_init(motor_t *motor, uint16_t steps_per_rev, TIM_HandleTypeDef *step_htim, uint32_t step_tim_clk, uint32_t step_tim_channel);
+void motor_init(motor_t *motor, uint16_t steps_per_rev, TIM_HandleTypeDef *step_htim, uint32_t step_tim_channel);
 void motor_drv_init(motor_drv_t *motor_drv, drv_t *drv, motor_t *motor);
 void motor_drv_set_target_rpm(motor_drv_t *motor_drv, float target_rpm);
