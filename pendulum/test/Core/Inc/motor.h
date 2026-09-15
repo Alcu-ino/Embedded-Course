@@ -18,8 +18,8 @@ typedef enum {
 typedef struct {
     uint16_t steps_per_rev;
     TIM_HandleTypeDef *htim_PWM; /* STEP timer */
-    uint32_t fclk;
-    uint32_t fmax;
+    float fclk;
+    float fmax;
     float fs;
     uint32_t tim_channel; /* Timer channel */
 } motor_t;
@@ -73,6 +73,6 @@ void drv_init(drv_t *drv, drv_microstep_t microsteps, GPIO_TypeDef *m0_port, uin
 void drv_set_microsteps(drv_t *drv, drv_microstep_t microsteps);
 void drv_set_direction(drv_t *drv, direction_t dir);
 
-void motor_init(motor_t *motor, uint16_t steps_per_rev, TIM_HandleTypeDef *htim, uint32_t tim_channel, uint32_t fmax, uint32_t fclk,uint32_t fs);
+void motor_init(motor_t *motor, uint16_t steps_per_rev, TIM_HandleTypeDef *htim, uint32_t tim_channel, float fmax,  float fclk,float fs);
 void motor_drv_init(motor_drv_t *motor_drv, drv_t *drv, motor_t *motor);
 void motor_acc(float acc, motor_drv_t *motor_drv);

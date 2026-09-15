@@ -33,10 +33,10 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define Fclk 84000000
-#define Fs 1000 //1/2pi radq(g/l)
+#define Fclk 84000000.0f
+#define Fs 1000.0f //1/2pi radq(g/l)
 #define STEPS_PER_REV 200
-#define FMAXmotor 20000 //DRV8825 8V [Hz]
+#define FMAXmotor 20000.0f //DRV8825 8V [Hz]
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/

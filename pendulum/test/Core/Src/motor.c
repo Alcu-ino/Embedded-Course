@@ -32,7 +32,7 @@ void drv_set_direction(drv_t *drv, direction_t dir){
     HAL_GPIO_WritePin(drv->dir_port, drv->dir_pin, (dir == DIRECTION_CW) ? GPIO_PIN_SET : GPIO_PIN_RESET);
 }
 
-void motor_init(motor_t *motor, uint16_t steps_per_rev, TIM_HandleTypeDef *htim, uint32_t tim_channel, uint32_t fmax, uint32_t fclk,uint32_t fs){
+void motor_init(motor_t *motor, uint16_t steps_per_rev, TIM_HandleTypeDef *htim, uint32_t tim_channel, float fmax,  float fclk,float fs){
     motor->steps_per_rev = steps_per_rev;
     motor->htim_PWM = htim;
     motor->tim_channel = tim_channel;
