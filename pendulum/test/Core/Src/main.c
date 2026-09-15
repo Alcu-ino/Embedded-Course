@@ -398,7 +398,7 @@ static void MX_GPIO_Init(void)
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
     if (htim->Instance == TIM3)
-    {
+    {//CONTROL LAW
       update_Encoder(&encoder);
       motor_acc(test_acc, &motor_drv);
     }
