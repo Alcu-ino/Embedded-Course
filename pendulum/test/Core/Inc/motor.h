@@ -7,7 +7,7 @@
 #include "main.h"
 #include "math.h"
 
-#define ARRMAX 0xFFFFFFFFUL
+#define ARRMAX 0xFFFFUL
 #define FMIN(fclk,psc) ((float)(fclk) / (((float)(psc) + 1.0f) * ((float)ARRMAX)))
 
 typedef enum {
@@ -20,7 +20,7 @@ typedef struct {
     TIM_HandleTypeDef *htim_PWM; /* STEP timer */
     uint32_t fclk;
     uint32_t fmax;
-    uint32_t fs;
+    float fs;
     uint32_t tim_channel; /* Timer channel */
 } motor_t;
 
@@ -65,7 +65,7 @@ typedef struct {
     drv_t *drv; /* Pointer to the driver */
     motor_t *motor; /* Pointer to motor */
     motion_state_t state;
-    int32_t fcurrent;/* Motion state */
+    float fcurrent;/* Motion state */
     uint8_t pwm_on; /* PWM is running [boolean] */
 } motor_drv_t;
 

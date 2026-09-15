@@ -40,6 +40,7 @@ void motor_init(motor_t *motor, uint16_t steps_per_rev, TIM_HandleTypeDef *htim,
     motor->fclk = fclk;
     motor->fs = fs;
 }
+
 void motor_drv_init(motor_drv_t *motor_drv, drv_t *drv, motor_t *motor){
     motor_drv->drv = drv;
     motor_drv->motor = motor;
@@ -61,7 +62,7 @@ void motor_acc(float acc, motor_drv_t *motor_drv){ //acc è in step/s^2
     float fs = motor_drv->motor->fs;
     float fmin = FMIN(fclk, psc);
 
-    float v = (float)(motor_drv->fcurrent) + acc/fs; // UNSIGNED FCURRENT NON VA A DESTRA SIGNED RUMORE STRANO, CORRENTE 0.082 incremento della velocità in base all'accelerazione e al tempo di campionamento
+    float v = motor_drv->fcurrent + acc/fs;
     if (v >=  fmax) v = fmax;
     if (v <= -fmax) v = -fmax;
 
@@ -69,6 +70,7 @@ void motor_acc(float acc, motor_drv_t *motor_drv){ //acc è in step/s^2
     if      (v > 0) drv_set_direction(motor_drv->drv, DIRECTION_CW);
     else if (v < 0) drv_set_direction(motor_drv->drv, DIRECTION_CCW);
     // se v == 0 lascio l'ultima direzione, tanto sto per fermarmi
+    
     motor_drv->fcurrent = v;
     float F = fabsf(v);
 
@@ -82,6 +84,7 @@ void motor_acc(float acc, motor_drv_t *motor_drv){ //acc è in step/s^2
 
     motor_drv->state = (acc >= 0) ? MOTOR_DRV_ACCEL : MOTOR_DRV_DECEL;
     arr = (uint32_t)(fclk / ((psc + 1) * F) - 1.0f);
+    if (arr > 0xFFFF) arr = 0xFFFF;
     ccr = arr / 2;
     
     __HAL_TIM_SET_AUTORELOAD(htim, arr);
