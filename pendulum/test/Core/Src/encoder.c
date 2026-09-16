@@ -19,6 +19,7 @@ void reset_Encoder(Encoder_HandleTypeDef *encoder, uint32_t cpr, uint8_t res, fl
 };
 
 void init_Encoder(Encoder_HandleTypeDef *encoder, uint32_t cpr, uint8_t res, float t){
+    encoder->timcount_array = (uint16_t[DMA_BUFFER_SIZE]){0};
     encoder->ts = t;
     encoder->cpr = cpr;
     encoder->res = res;
@@ -29,7 +30,16 @@ void init_Encoder(Encoder_HandleTypeDef *encoder, uint32_t cpr, uint8_t res, flo
 };
 
 void update_Encoder(Encoder_HandleTypeDef *encoder){
-    encoder->prev_angle = encoder->angle;
+    if (DMA2_Stream5->NDTR) 
+    {
+        encoder->angle   = encoder->timcount_array[0];
+        encoder->prev_angle = encoder->timcount_array[1];
+    } 
+    else 
+    {
+        encoder->angle   = encoder->timcount_array[1];
+        encoder->prev_angle = encoder->timcount_array[0];
+    }
     encoder->angle = (float)TIM1->CNT * 360 / (float)(encoder->cpr * encoder->res);
     volatile float delta= encoder->angle - encoder->prev_angle;
     volatile float delta_angle = atan2f(sinf(delta), cosf(delta));

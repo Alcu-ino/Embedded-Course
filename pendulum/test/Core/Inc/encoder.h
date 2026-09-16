@@ -9,8 +9,10 @@
 #define Tc 1/(84*pow(10,6))
 #define RES 4
 #define CPR 600
+#define DMA_BUFFER_SIZE 2
 
 typedef struct {
+    uint16_t timcount_array[DMA_BUFFER_SIZE];
     float ts;
     uint32_t cpr;
     uint8_t res;
