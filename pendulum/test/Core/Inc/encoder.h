@@ -1,12 +1,12 @@
 /*
- * motor.c
+ * encoder.h
  *
  *  Created on: 13 set 2026
  *      Author: vito
  */
 #include "stdint.h"
 
-#define Tc 1/(84*pow(10,6))
+#define Tc 840/(84*pow(10,6))
 #define RES 4
 #define CPR 600
 #define DMA_BUFFER_SIZE 2

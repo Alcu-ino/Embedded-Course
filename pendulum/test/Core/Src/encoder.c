@@ -1,5 +1,5 @@
 /*
- * motor.c
+ * encoder.c
  *
  *  Created on: 13 set 2026
  *      Author: vito
@@ -31,18 +31,17 @@ void init_Encoder(Encoder_HandleTypeDef *encoder, uint32_t cpr, uint8_t res, flo
 };
 
 void update_Encoder(Encoder_HandleTypeDef *encoder){
-    if (DMA2_Stream5->NDTR) 
+    if (DMA2_Stream5->NDTR ==1) 
     {
-        encoder->angle   = encoder->timcount_array[0];
-        encoder->prev_angle = encoder->timcount_array[1];
+        encoder->angle   = (float)(encoder->timcount_array[0])* 360 / (float)(encoder->cpr * encoder->res);
+        encoder->prev_angle = (float)(encoder->timcount_array[1])* 360 / (float)(encoder->cpr * encoder->res);
     } 
     else 
     {
-        encoder->angle   = encoder->timcount_array[1];
-        encoder->prev_angle = encoder->timcount_array[0];
+        encoder->angle   = (float)(encoder->timcount_array[1])* 360 / (float)(encoder->cpr * encoder->res);
+        encoder->prev_angle = (float)(encoder->timcount_array[0])* 360 / (float)(encoder->cpr * encoder->res);
     }
-    encoder->angle = (float)TIM1->CNT * 360 / (float)(encoder->cpr * encoder->res);
-    volatile float delta= encoder->angle - encoder->prev_angle;
+    volatile float delta= (encoder->angle - encoder->prev_angle)*M_PI/180;
     volatile float delta_angle = atan2f(sinf(delta), cosf(delta));
     encoder->w = delta_angle / encoder->ts;
     encoder->a = 0;
