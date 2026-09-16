@@ -111,8 +111,8 @@ int main(void)
   DMA2_Stream5->CR &= ~DMA_SxCR_TCIE;
   HAL_NVIC_DisableIRQ(DMA2_Stream5_IRQn);
   init_Encoder(&encoder, CPR, RES, Tc);
-  HAL_DMA_Start(&htim1, (uint32_t)&TIM1->CNT, (uint32_t)encoder.timcount_array, DMA_BUFFER_SIZE);
-__HAL_TIM_ENABLE_DMA(&htim1, TIM_DMA_UPDATE);
+  HAL_DMA_Start(&hdma_tim1_up, (uint32_t)&TIM1->CNT, (uint32_t)encoder.timcount_array, DMA_BUFFER_SIZE);
+  __HAL_TIM_ENABLE_DMA(&htim1, TIM_DMA_UPDATE);
   HAL_TIM_Encoder_Start(&htim1, TIM_CHANNEL_ALL);
   HAL_TIM_Base_Start_IT(&htim3);
 

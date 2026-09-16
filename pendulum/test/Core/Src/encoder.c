@@ -19,7 +19,8 @@ void reset_Encoder(Encoder_HandleTypeDef *encoder, uint32_t cpr, uint8_t res, fl
 };
 
 void init_Encoder(Encoder_HandleTypeDef *encoder, uint32_t cpr, uint8_t res, float t){
-    encoder->timcount_array = (uint16_t[DMA_BUFFER_SIZE]){0};
+    encoder->timcount_array[0]=0;
+    encoder->timcount_array[1]=0;
     encoder->ts = t;
     encoder->cpr = cpr;
     encoder->res = res;
