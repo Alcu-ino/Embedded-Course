@@ -118,12 +118,12 @@ int main(void)
   __HAL_TIM_ENABLE_DMA(&htim4, TIM_DMA_UPDATE);
   HAL_TIM_Base_Start(&htim4);
   HAL_TIM_Encoder_Start(&htim1, TIM_CHANNEL_ALL);
-  HAL_TIM_Base_Start_IT(&htim3);
 
   drv_init(&drv, 1, M0_GPIO_Port, M0_Pin, M1_GPIO_Port, M1_Pin, M2_GPIO_Port, M2_Pin, DIR_GPIO_Port, DIR_Pin, RST_SLP_GPIO_Port, RST_SLP_Pin);
 
-  motor_init(&motor, STEPS_PER_REV, &htim2, TIM_CHANNEL_1, FMAXmotor, Fclk,Fs);
+  motor_init(&motor, STEPS_PER_REV, &htim2, TIM_CHANNEL_1, FMAXmotor, Fclk, Fs);
   motor_drv_init(&motor_drv, &drv, &motor);
+  HAL_TIM_Base_Start_IT(&htim3);
 
   //HAL_TIM_Base_Start_IT(&htim3); IL TIMER PARTE CON IL COMANDO DEL MOTORE E SI STOPPA QUANDO FINISCE
   /* USER CODE END 2 */

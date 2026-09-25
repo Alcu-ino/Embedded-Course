@@ -1,6 +1,6 @@
-../Core/Src/motor.c:9:6:drv_set_microsteps	16	static
 ../Core/Src/motor.c:16:6:drv_init	24	static
-../Core/Src/motor.c:30:6:drv_set_direction	16	static
-../Core/Src/motor.c:35:6:motor_init	40	static
-../Core/Src/motor.c:44:6:motor_drv_init	24	static
-../Core/Src/motor.c:52:6:motor_acc	64	static
+../Core/Src/motor.c:40:6:drv_set_microsteps	24	static
+../Core/Src/motor.c:60:6:drv_set_direction	16	static
+../Core/Src/motor.c:71:6:motor_init	48	static
+../Core/Src/motor.c:95:6:motor_drv_init	24	static
+../Core/Src/motor.c:105:6:motor_acc	104	static,ignoring_inline_asm
