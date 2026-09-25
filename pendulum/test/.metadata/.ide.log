@@ -1,0 +1,13 @@
+2026-09-25 14:33:44,802 [INFO] Activator:176 - 
+
+
+2026-09-25 14:33:44,803 [INFO] Activator:177 - !SESSION log4j initialized
+2026-09-25 14:33:46,629 [INFO] LogOutputStream:77 - [STDOUT_REDIRECT] 
+2026-09-25 14:33:47,009 [ERROR] ConfigurationRetriever:142 - IOException on connection: La rete non è raggiungibile
+2026-09-25 14:33:47,010 [ERROR] ConfigurationRetriever:142 - IOException on connection: La rete non è raggiungibile
+2026-09-25 14:33:47,011 [ERROR] ConfigurationRetriever:142 - IOException on connection: La rete non è raggiungibile
+2026-09-25 14:37:41,699 [INFO] Activator:176 - 
+
+
+2026-09-25 14:37:41,701 [INFO] Activator:177 - !SESSION log4j initialized
+2026-09-25 14:37:42,815 [INFO] LogOutputStream:77 - [STDOUT_REDIRECT] 

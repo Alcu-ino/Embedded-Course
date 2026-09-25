@@ -5,6 +5,7 @@
  *      Author: vito
  */
 #include "motor.h"
+#include "stdio.h"
 
 void drv_set_microsteps(drv_t *drv, drv_microstep_t microsteps){
     drv->microsteps = microsteps;
@@ -60,9 +61,16 @@ void motor_acc(float acc, motor_drv_t *motor_drv){ //acc è in step/s^2
     float fmax = motor_drv->motor->fmax;
     float fclk = motor_drv->motor->fclk;
     float fs = motor_drv->motor->fs;
-    float fmin = FMIN(fclk, psc);
+    float v = 0;
+    float v_old = motor_drv->fcurrent;
 
-    float v = motor_drv->fcurrent + acc/fs;
+    double fmin = FMIN(fclk, psc);
+    double ticks = 0;
+    const double max_ticks = (double)ARRMAX + 1.0;
+
+    if(acc > 0) {v = 0; v = motor_drv->fcurrent + fabs(acc)/fs;}
+    else if(acc < 0) {v = 0; v = motor_drv->fcurrent - fabs(acc)/fs;}
+
     if (v >=  fmax) v = fmax;
     if (v <= -fmax) v = -fmax;
 
@@ -72,27 +80,41 @@ void motor_acc(float acc, motor_drv_t *motor_drv){ //acc è in step/s^2
     // se v == 0 lascio l'ultima direzione, tanto sto per fermarmi
     
     motor_drv->fcurrent = v;
-    float F = fabsf(v);
+    double F = fabsf(v);
 
     // sotto fmin: fermo l'uscita, niente calcolo ARR (evita /0)
-    if (F <= fmin) {
+    if (!isfinite(F) || F == 0.0f || F < fmin) {
         motor_drv->state = MOTOR_DRV_STOPPED;
         HAL_TIM_PWM_Stop(htim, ch);
         motor_drv->pwm_on = 0;
         return;
     }
 
-    motor_drv->state = (acc >= 0) ? MOTOR_DRV_ACCEL : MOTOR_DRV_DECEL;
-    arr = (uint32_t)(fclk / ((psc + 1) * F) - 1.0f);
-    if (arr > 0xFFFF) arr = 0xFFFF;
-    ccr = arr / 2;
-    
-    __HAL_TIM_SET_AUTORELOAD(htim, arr);
-    __HAL_TIM_SET_COMPARE(htim, ch, ccr);
-    htim->Instance->EGR = TIM_EGR_UG;
-
-    if (motor_drv->pwm_on == 0) {
-        HAL_TIM_PWM_Start(htim, ch);
+    if (motor_drv->pwm_on && ((v > 0) != (v_old > 0))) {
+        HAL_TIM_PWM_Stop(htim, ch);
+        motor_drv->pwm_on = 0;
     }
-    motor_drv->pwm_on = 1;
+
+    motor_drv->state = (v * acc >= 0.0f) ? MOTOR_DRV_ACCEL : MOTOR_DRV_DECEL;
+    
+    ticks = fclk / (((float)psc + 1.0f) * F);
+    if (ticks > (float)ARRMAX + 1.0f) ticks = (float)ARRMAX + 1.0f;
+    if (ticks < 2.0f) ticks = 2.0f;
+    arr = (uint32_t)ticks - 1U;
+    ccr = (arr + 1U) / 2U;
+
+    if (!motor_drv->pwm_on) {
+        // Partenza: DIR impostato a PWM spento, poi carico subito i registri
+        drv_set_direction(motor_drv->drv, (v > 0) ? DIRECTION_CW : DIRECTION_CCW);
+        __HAL_TIM_SET_AUTORELOAD(htim, arr);
+        __HAL_TIM_SET_COMPARE(htim, ch, ccr);
+        __HAL_TIM_SET_COUNTER(htim, 0);
+        htim->Instance->EGR = TIM_EGR_UG;
+        HAL_TIM_PWM_Start(htim, ch);
+        motor_drv->pwm_on = 1;
+    } else {
+        // In corsa: con preload attivo i valori entrano al prossimo update, niente UG
+        __HAL_TIM_SET_AUTORELOAD(htim, arr);
+        __HAL_TIM_SET_COMPARE(htim, ch, ccr);
+    }
 }
