@@ -36,7 +36,7 @@
 #define Fclk 84000000.0f
 #define Fs 1000.0f//1/2pi radq(g/l)
 #define STEPS_PER_REV 200
-#define FMAXmotor 1300.0f //DRV8825 8V [Hz]
+#define FMAXmotor 8000.0f //DRV8825 8V [Hz]
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -121,7 +121,7 @@ int main(void)
   HAL_TIM_Base_Start_IT(&htim3);
 
   drv_init(&drv, 1, M0_GPIO_Port, M0_Pin, M1_GPIO_Port, M1_Pin, M2_GPIO_Port, M2_Pin, DIR_GPIO_Port, DIR_Pin, RST_SLP_GPIO_Port, RST_SLP_Pin);
-  
+
   motor_init(&motor, STEPS_PER_REV, &htim2, TIM_CHANNEL_1, FMAXmotor, Fclk,Fs);
   motor_drv_init(&motor_drv, &drv, &motor);
 
@@ -132,13 +132,9 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  test_acc = 1000000.0; HAL_Delay(1000);
-	  motor_acc(test_acc, &motor_drv); HAL_Delay(1000);
-	  test_acc = -1000000.0; HAL_Delay(1000);
-	  motor_acc(test_acc, &motor_drv); HAL_Delay(1000);
-	  test_acc = 1000000.0; HAL_Delay(1000);
-	  motor_acc(test_acc, &motor_drv); HAL_Delay(1000);
-
+	 motor_acc(16000.0, &motor_drv); HAL_Delay(1000);
+	 motor_acc(-16000.0, &motor_drv); HAL_Delay(1000);
+	 motor_acc(-16000.0, &motor_drv); HAL_Delay(1000);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
