@@ -125,14 +125,11 @@ void motor_acc(float acc, motor_drv_t *motor_drv)
     if (v < -fmax) v = -fmax;
 
     /* 4. Direzione: scritta solo al cambio */
-    uint8_t dir_changed = 0u;
-    if (v > 0.0f && motor_drv->drv->dir != DIRECTION_CW) {
-        drv_set_direction(motor_drv->drv, DIRECTION_CW);
-        dir_changed = 1u;
-    } else if (v < 0.0f && motor_drv->drv->dir != DIRECTION_CCW) {
-        drv_set_direction(motor_drv->drv, DIRECTION_CCW);
-        dir_changed = 1u;
-    }
+    /* 4. Direzione desiderata (scritta al punto 8, a STEP fermo) */
+    direction_t new_dir = motor_drv->drv->dir;
+    if      (v > 0.0f) new_dir = DIRECTION_CW;
+    else if (v < 0.0f) new_dir = DIRECTION_CCW;
+    uint8_t dir_changed = (new_dir != motor_drv->drv->dir);
 
     motor_drv->fcurrent = v;
     float F = fabsf(v);
