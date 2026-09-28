@@ -36,7 +36,7 @@
 #define Fclk 84000000.0f
 #define Fs 1000.0f//1/2pi radq(g/l)
 #define STEPS_PER_REV 200
-#define FMAXmotor 1300.0f //DRV8825 8V [Hz]
+#define FMAXmotor 1000.0f //DRV8825 8V [Hz]
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -118,12 +118,13 @@ int main(void)
   __HAL_TIM_ENABLE_DMA(&htim4, TIM_DMA_UPDATE);
   HAL_TIM_Base_Start(&htim4);
   HAL_TIM_Encoder_Start(&htim1, TIM_CHANNEL_ALL);
-  HAL_TIM_Base_Start_IT(&htim3);
 
   drv_init(&drv, 1, M0_GPIO_Port, M0_Pin, M1_GPIO_Port, M1_Pin, M2_GPIO_Port, M2_Pin, DIR_GPIO_Port, DIR_Pin, RST_SLP_GPIO_Port, RST_SLP_Pin);
-  
-  motor_init(&motor, STEPS_PER_REV, &htim2, TIM_CHANNEL_1, FMAXmotor, Fclk,Fs);
+
+  motor_init(&motor, STEPS_PER_REV, &htim2, TIM_CHANNEL_1, FMAXmotor, Fclk, Fs);
   motor_drv_init(&motor_drv, &drv, &motor);
+  HAL_TIM_Base_Start_IT(&htim3);
+  motor_acc_calc(&motor_drv);
 
   //HAL_TIM_Base_Start_IT(&htim3); IL TIMER PARTE CON IL COMANDO DEL MOTORE E SI STOPPA QUANDO FINISCE
   /* USER CODE END 2 */
@@ -132,12 +133,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  test_acc = 1000000.0; HAL_Delay(1000);
-	  motor_acc(test_acc, &motor_drv); HAL_Delay(1000);
-	  test_acc = -1000000.0; HAL_Delay(1000);
-	  motor_acc(test_acc, &motor_drv); HAL_Delay(1000);
-	  test_acc = 1000000.0; HAL_Delay(1000);
-	  motor_acc(test_acc, &motor_drv); HAL_Delay(1000);
+
 
     /* USER CODE END WHILE */
 
@@ -477,14 +473,14 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-/*void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
-    if (htim->Instance == TIM2)
+    if (htim->Instance == TIM3)
     {//CONTROL LAW
       update_Encoder(&encoder);
-      motor_acc(test_acc, &motor_drv);
+
     }
-}*/
+}
 /* USER CODE END 4 */
 
 /**
