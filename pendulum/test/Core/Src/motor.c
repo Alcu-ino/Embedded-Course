@@ -132,6 +132,7 @@ void motor_acc(float acc, motor_drv_t *motor_drv)
     uint8_t dir_changed = (new_dir != motor_drv->drv->dir);
 
     motor_drv->fcurrent = v;
+    motor_drv->position += v*dt;
     float F = fabsf(v);
 
     /* 5. Frequenza minima: limite del timer o soglia pratica (periodi <= 200 ms).
@@ -182,6 +183,7 @@ void motor_acc(float acc, motor_drv_t *motor_drv)
             HAL_TIM_PWM_Stop(htim, ch);
             motor_drv->pwm_on = 0u;
         }
+        drv_set_direction(motor_drv->drv, new_dir);
         DIR_SETUP_DELAY();              /* Garantisce t_SETUP >= 650 ns */
         tim->EGR = TIM_EGR_UG;          /* Carica subito i nuovi ARR/CCR e azzera CNT */
         HAL_TIM_PWM_Start(htim, ch);    /* Avvia il PWM in modo pulito */
@@ -198,4 +200,90 @@ void motor_acc(float acc, motor_drv_t *motor_drv)
             tim->EGR = TIM_EGR_UG;
         }
     }
+}
+
+
+/* ========================================================================== */
+/*  Homing                                                                    */
+/* ========================================================================== */
+#define HOMING_F          2000.0f          /* [step/s] velocita' di homing        */
+#define HOMING_MAX_STEPS  20000u          /* oltre questi passi: errore          */
+#define LIMIT_ACTIVE      GPIO_PIN_RESET  /* finecorsa premuto = livello basso   */
+
+/* bit0 = finecorsa A premuto, bit1 = finecorsa B premuto */
+static uint8_t limit_read(void)
+{
+    uint8_t s = 0u;
+    if (HAL_GPIO_ReadPin(LIMIT_A_GPIO_Port, LIMIT_A_Pin) == LIMIT_ACTIVE) s |= 1u;
+    if (HAL_GPIO_ReadPin(LIMIT_B_GPIO_Port, LIMIT_B_Pin) == LIMIT_ACTIVE) s |= 2u;
+    return s;
+}
+
+/* Muove in direzione 'dir' a HOMING_F finche' scatta uno dei finecorsa in 'watch'
+   oppure sono stati fatti 'max_steps' passi. Ritorna i passi fatti;
+   in *hit il finecorsa scattato (0 se nessuno). */
+static uint32_t homing_move(motor_drv_t *motor_drv, direction_t dir,
+                            uint8_t watch, uint32_t max_steps, uint8_t *hit)
+{
+    TIM_HandleTypeDef *htim = motor_drv->motor->htim_PWM;
+    TIM_TypeDef       *tim  = htim->Instance;
+    uint32_t ch = motor_drv->motor->tim_channel;
+
+    float    tick_hz = motor_drv->motor->fclk / ((float)tim->PSC + 1.0f);
+    uint32_t pulse   = (uint32_t)(STEP_PULSE_S * tick_hz) + 1u;
+    uint32_t arr     = (uint32_t)(tick_hz / HOMING_F) - 1u;
+
+    /* STEP fermo, poi direzione, poi ripartenza */
+    HAL_TIM_PWM_Stop(htim, ch);
+    drv_set_direction(motor_drv->drv, dir);
+    DIR_SETUP_DELAY();
+
+    __HAL_TIM_SET_AUTORELOAD(htim, arr);
+    __HAL_TIM_SET_COMPARE(htim, ch, pulse);
+    tim->EGR = TIM_EGR_UG;                 /* carica i registri e azzera CNT */
+    tim->SR  = ~TIM_SR_UIF;                /* azzera il flag di update       */
+    HAL_TIM_PWM_Start(htim, ch);
+
+    uint32_t steps = 0u;
+    *hit = 0u;
+    while (steps < max_steps) {
+        uint8_t s = limit_read() & watch;
+        if (s) { *hit = s; break; }        /* finecorsa intercettato */
+
+        if (tim->SR & TIM_SR_UIF) {        /* un periodo = un passo  */
+            tim->SR = ~TIM_SR_UIF;
+            steps++;
+        }
+    }
+
+    HAL_TIM_PWM_Stop(htim, ch);
+    return steps;
+}
+
+/* Homing: va a un finecorsa, inverte e conta i passi fino all'altro,
+   inverte e torna indietro di meta'. Bloccante.
+   Ritorna la corsa in passi, 0 se fallisce. */
+uint32_t motor_homing(motor_drv_t *motor_drv)
+{
+    uint8_t hit1, hit2, nessuno;
+
+    /* 1. verso il primo finecorsa (va bene uno qualsiasi dei due) */
+    homing_move(motor_drv, DIRECTION_CCW, 3u, HOMING_MAX_STEPS, &hit1);
+    if (hit1 == 0u) return 0u;
+
+    /* 2. inversione e conteggio fino all'altro finecorsa */
+    uint32_t n = homing_move(motor_drv, DIRECTION_CW, (uint8_t)(3u & ~hit1),
+                             HOMING_MAX_STEPS, &hit2);
+    if (hit2 == 0u) return 0u;
+
+    /* 3. inversione e ritorno di n/2 passi, senza guardare i finecorsa */
+    homing_move(motor_drv, DIRECTION_CCW, 0u, n / 2u, &nessuno);
+
+    /* 4. fermo al centro: questo e' lo zero */
+    motor_drv->fcurrent = 0.0f;
+    motor_drv->position = 0.0f;
+    motor_drv->pwm_on   = 0u;
+    motor_drv->state    = MOTOR_DRV_STOPPED;
+
+    return n;
 }

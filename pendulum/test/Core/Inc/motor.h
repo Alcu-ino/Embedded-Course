@@ -74,6 +74,7 @@ typedef struct {
     motion_state_t state;         /* Motion state */
     float fcurrent;               /* [step/s] velocita' con segno */
     uint8_t pwm_on;               /* PWM is running [boolean] */
+    float position;               /* [step] posizione corrente */
 } motor_drv_t;
 
 void drv_init(drv_t *drv, drv_microstep_t microsteps,
@@ -89,5 +90,5 @@ void motor_init(motor_t *motor, uint16_t steps_per_rev, TIM_HandleTypeDef *htim,
                 uint32_t tim_channel, float fmax, float fclk, float fs);
 void motor_drv_init(motor_drv_t *motor_drv, drv_t *drv, motor_t *motor);
 void motor_acc(float acc, motor_drv_t *motor_drv);
-
+uint32_t motor_homing(motor_drv_t *motor_drv);
 #endif /* MOTOR_H */

@@ -24,6 +24,7 @@
 #include "encoder.h"
 #include "motor.h"
 #include "debug.h"
+#include "lqr.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -37,6 +38,8 @@
 #define Fs 1000.0f//1/2pi radq(g/l)
 #define STEPS_PER_REV 200
 #define FMAXmotor 8000.0f //DRV8825 8V [Hz]
+#define ANGOLO_MIN 165
+#define ANGOLO_MAX 195
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -56,7 +59,7 @@ drv_t drv;
 motor_t motor;
 motor_drv_t motor_drv;
 Encoder_HandleTypeDef encoder;
-volatile float test_acc = 0.0;
+volatile float acc = 0.0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -111,34 +114,35 @@ int main(void)
   MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
   /* Inizializzazione ed esecuzione senza interrupt */
-  DMA2_Stream5->CR &= ~DMA_SxCR_TCIE;
-  HAL_NVIC_DisableIRQ(DMA2_Stream5_IRQn);
-  init_Encoder(&encoder, CPR, RES, Tc);
+  //DISABILITA INTERRUPT DMA
+  DMA1_Stream6->CR &= ~DMA_SxCR_TCIE;
+  HAL_NVIC_DisableIRQ(DMA1_Stream6_IRQn);
+  //START ENCODER E TIM4 PER CAMPIONAMENTO
+  init_Encoder(&encoder, CPR, RES, 1.0f/Fs);
   HAL_DMA_Start(&hdma_tim4_up, (uint32_t)&TIM1->CNT, (uint32_t)encoder.timcount_array, DMA_BUFFER_SIZE);
   __HAL_TIM_ENABLE_DMA(&htim4, TIM_DMA_UPDATE);
   HAL_TIM_Base_Start(&htim4);
+  //TIM1 PER LETTURA ENCODER
   HAL_TIM_Encoder_Start(&htim1, TIM_CHANNEL_ALL);
-
+  //TIM2 PER PWM E MOTOR DRIVER
   drv_init(&drv, 1, M0_GPIO_Port, M0_Pin, M1_GPIO_Port, M1_Pin, M2_GPIO_Port, M2_Pin, DIR_GPIO_Port, DIR_Pin, RST_SLP_GPIO_Port, RST_SLP_Pin);
-
   motor_init(&motor, STEPS_PER_REV, &htim2, TIM_CHANNEL_1, FMAXmotor, Fclk, Fs);
   motor_drv_init(&motor_drv, &drv, &motor);
+  //HOMING
+  if (motor_homing(&motor_drv) == 0u) {
+    Error_Handler();          /* finecorsa non trovato */
+  }
+  //TIM3 PER AZIONE CONTROLLO
   HAL_TIM_Base_Start_IT(&htim3);
 
-  //HAL_TIM_Base_Start_IT(&htim3); IL TIMER PARTE CON IL COMANDO DEL MOTORE E SI STOPPA QUANDO FINISCE
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	 motor_acc(16000.0, &motor_drv); HAL_Delay(1000);
-	 motor_acc(-16000.0, &motor_drv); HAL_Delay(1000);
-	 motor_acc(-16000.0, &motor_drv); HAL_Delay(1000);
     /* USER CODE END WHILE */
-
     /* USER CODE BEGIN 3 */
-
   }
   /* USER CODE END 3 */
 }
@@ -473,14 +477,37 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-/*void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
-    if (htim->Instance == TIM2)
-    {//CONTROL LAW
+    if (htim->Instance == TIM3)
+    {
+
+      /* l'encoder si aggiorna sempre, anche a controllo spento */
       update_Encoder(&encoder);
-      motor_acc(test_acc, &motor_drv);
+
+      uint8_t in_range = (encoder.angle >= ANGOLO_MIN && encoder.angle <= ANGOLO_MAX);
+
+      if (in_range && !control_on) {
+          /* ingresso nel range: il punto in cui si trova il carrello diventa lo zero */
+          motor_drv.position = 0.0f;
+          motor_drv.fcurrent = 0.0f;
+          control_on = 1u;
+      } 
+      else if (!in_range && control_on) {
+        /* uscita dal range: il pendolo e' caduto */
+        control_on = 0u;
+      }
+      if (control_on) {
+          lqr_controller(&encoder, &motor_drv, &acc);
+      } 
+      else {
+          motor_drv.fcurrent = 0.0f;   /* motore fermo */
+          acc = 0.0f;
+      }
+
+      motor_acc(acc, &motor_drv);
     }
-}*/
+}
 /* USER CODE END 4 */
 
 /**
