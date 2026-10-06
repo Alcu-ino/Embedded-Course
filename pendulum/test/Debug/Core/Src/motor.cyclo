@@ -3,4 +3,6 @@
 ../Core/Src/motor.c:60:6:drv_set_direction	1
 ../Core/Src/motor.c:71:6:motor_init	7
 ../Core/Src/motor.c:95:6:motor_drv_init	1
-../Core/Src/motor.c:105:6:motor_acc	25
+../Core/Src/motor.c:105:6:motor_acc	23
+../Core/Src/motor.c:227:17:homing_move	8
+../Core/Src/motor.c:269:10:motor_homing	3

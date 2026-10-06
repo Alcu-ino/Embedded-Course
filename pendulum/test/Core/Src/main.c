@@ -25,6 +25,7 @@
 #include "motor.h"
 #include "debug.h"
 #include "lqr.h"
+#include "swingup.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -60,6 +61,8 @@ motor_t motor;
 motor_drv_t motor_drv;
 Encoder_HandleTypeDef encoder;
 volatile float acc = 0.0;
+swingup_t su;
+volatile uint8_t control_on = 0u;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -481,31 +484,33 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
     if (htim->Instance == TIM3)
     {
-
-      /* l'encoder si aggiorna sempre, anche a controllo spento */
+      /* l'encoder si aggiorna sempre */
       update_Encoder(&encoder);
 
       uint8_t in_range = (encoder.angle >= ANGOLO_MIN && encoder.angle <= ANGOLO_MAX);
 
       if (in_range && !control_on) {
-          /* ingresso nel range: il punto in cui si trova il carrello diventa lo zero */
+          /* ingresso nel range (SWINGUP -> LQR): il punto in cui si trova
+             il carrello diventa lo zero. fcurrent NON si azzera: il carrello
+             arriva in moto dallo swing-up. */
           motor_drv.position = 0.0f;
-          motor_drv.fcurrent = 0.0f;
           control_on = 1u;
-      } 
-      else if (!in_range && control_on) {
-        /* uscita dal range: il pendolo e' caduto */
-        control_on = 0u;
       }
-      if (control_on) {
-          lqr_controller(&encoder, &motor_drv, &acc);
-      } 
-      else {
-          motor_drv.fcurrent = 0.0f;   /* motore fermo */
-          acc = 0.0f;
+      else if (!in_range && control_on) {
+          /* uscita dal range (LQR -> SWINGUP): il pendolo e' caduto */
+          control_on = 0u;
       }
 
-      motor_acc(acc, &motor_drv);
+      if (control_on) {
+          /* stato LQR */
+          lqr_controller(&encoder, &motor_drv, &acc);
+          motor_acc(acc, &motor_drv);
+      }
+      else {
+          /* stato SWINGUP: swingup_update() chiama gia' motor_acc() */
+          swingup_update(&su, &encoder, &motor_drv);
+          acc = su.acc;        /* solo per debug */
+      }
     }
 }
 /* USER CODE END 4 */

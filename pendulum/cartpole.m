@@ -69,3 +69,6 @@
 
     %%
     %OSSERVATORE DI STATO
+    Erif = m*g*L
+    K = 1200
+    Erif*K

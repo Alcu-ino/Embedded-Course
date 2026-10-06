@@ -4,6 +4,9 @@
  *  Created on: 13 set 2026
  *      Author: vito
  */
+#ifndef ENCODER_H
+#define ENCODER_H
+
 #include "stdint.h"
 
 #define RES 4
@@ -24,3 +27,4 @@ typedef struct {
 void reset_Encoder(Encoder_HandleTypeDef *, uint32_t, uint8_t, float );
 void init_Encoder(Encoder_HandleTypeDef *, uint32_t, uint8_t, float );
 void update_Encoder(Encoder_HandleTypeDef *);
+#endif
