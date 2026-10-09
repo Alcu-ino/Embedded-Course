@@ -119,20 +119,15 @@ int main(void)
   /* Inizializzazione ed esecuzione senza interrupt */
   //DISABILITA INTERRUPT DMA
   DMA1_Stream6->CR &= ~DMA_SxCR_TCIE;
-  if (HAL_NVIC_DisableIRQ(DMA1_Stream6_IRQn) != HAL_OK)
-  {
-    Error_Handler();
-  }
+  HAL_NVIC_DisableIRQ(DMA1_Stream6_IRQn);
+
   //START ENCODER E TIM4 PER CAMPIONAMENTO
   init_Encoder(&encoder, CPR, RES, 1.0f/Fs);
   if (HAL_DMA_Start(&hdma_tim4_up, (uint32_t)&TIM3->CNT, (uint32_t)encoder.timcount_array, DMA_BUFFER_SIZE) != HAL_OK)
   {
     Error_Handler();
   }
-  if (__HAL_TIM_ENABLE_DMA(&htim4, TIM_DMA_UPDATE) != HAL_OK)
-  {
-    Error_Handler();
-  }
+  __HAL_TIM_ENABLE_DMA(&htim4, TIM_DMA_UPDATE);
   if (HAL_TIM_Base_Start(&htim4) != HAL_OK)
   {
     Error_Handler();

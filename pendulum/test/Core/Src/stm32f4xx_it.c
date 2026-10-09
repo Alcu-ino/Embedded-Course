@@ -214,14 +214,14 @@ void DMA1_Stream6_IRQHandler(void)
 }
 
 /**
-  * @brief This function handles TIM3 global interrupt.
+  * @brief This function handles TIM1 global interrupt.
   */
-void TIM3_IRQHandler(void)
+void TIM1_IRQHandler(void)
 {
-  /* USER CODE BEGIN TIM3_IRQn 0 */
+  /* USER CODE BEGIN TIM1_IRQn 0 */
 
-  /* USER CODE END TIM3_IRQn 0 */
-  HAL_TIM_IRQHandler(&htim3);
+  /* USER CODE END TIM1_IRQn 0 */
+  HAL_TIM_IRQHandler(&htim1);
   /* USER CODE BEGIN TIM3_IRQn 1 */
 
   /* USER CODE END TIM3_IRQn 1 */
