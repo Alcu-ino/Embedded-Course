@@ -38,7 +38,7 @@
 #define Fclk 84000000.0f
 #define Fs 1000.0f//1/2pi radq(g/l)
 #define STEPS_PER_REV 200
-#define FMAXmotor 8000.0f //DRV8825 8V [Hz]
+#define FMAXmotor 1000.0f //DRV8825 8V [Hz]
 #define ANGOLO_MIN 165
 #define ANGOLO_MAX 195
 /* USER CODE END PD */
@@ -132,9 +132,7 @@ int main(void)
   motor_init(&motor, STEPS_PER_REV, &htim2, TIM_CHANNEL_1, FMAXmotor, Fclk, Fs);
   motor_drv_init(&motor_drv, &drv, &motor);
   //HOMING
-  if (motor_homing(&motor_drv) == 0u) {
-    Error_Handler();          /* finecorsa non trovato */
-  }
+  //motor_homing(&motor_drv);
   //TIM3 PER AZIONE CONTROLLO
   HAL_TIM_Base_Start_IT(&htim3);
 
@@ -491,16 +489,16 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
     if (htim->Instance == TIM3)
     {
-      /* l'encoder si aggiorna sempre */
+      // l'encoder si aggiorna sempre
       update_Encoder(&encoder);
 
       uint8_t in_range = (encoder.angle >= ANGOLO_MIN && encoder.angle <= ANGOLO_MAX);
 
       if (in_range && !control_on) {
-          /* ingresso nel range (SWINGUP -> LQR): il punto in cui si trova
-             il carrello diventa lo zero. fcurrent NON si azzera: il carrello
-             arriva in moto dallo swing-up. */
-          motor_drv.position = 0.0f;
+           //ingresso nel range (SWINGUP -> LQR): il punto in cui si trova
+             //il carrello diventa lo zero. fcurrent NON si azzera: il carrello
+             //arriva in moto dallo swing-up.
+    	  motor_drv.position = 0.0f;
           control_on = 1u;
       }
       else if (!in_range && control_on) {

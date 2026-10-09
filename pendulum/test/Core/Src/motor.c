@@ -206,7 +206,7 @@ void motor_acc(float acc, motor_drv_t *motor_drv)
 /* ========================================================================== */
 /*  Homing                                                                    */
 /* ========================================================================== */
-#define HOMING_F          2000.0f          /* [step/s] velocita' di homing        */
+#define HOMING_F          1000.0f          /* [step/s] velocita' di homing        */
 #define HOMING_MAX_STEPS  20000u          /* oltre questi passi: errore          */
 #define LIMIT_ACTIVE      GPIO_PIN_RESET  /* finecorsa premuto = livello basso   */
 

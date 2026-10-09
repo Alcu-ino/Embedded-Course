@@ -18,7 +18,7 @@
 /* Guadagno: moltiplica (E_rif - E_attuale), con l'energia in joule
    (NON normalizzata: la scala 1/(m*g*l) e' gia' dentro K).
    Il risultato va diretto a motor_acc(), quindi K e' in (step/s^2) / J. */
-#define SWINGUP_K           1200.0f
+#define SWINGUP_K           800.0f
 
 /* DA INSERIRE: parametri fisici del pendolo (gli stessi usati in MATLAB).
    I valori qui sotto sono SEGNAPOSTO. */
