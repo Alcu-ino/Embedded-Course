@@ -119,14 +119,29 @@ int main(void)
   /* Inizializzazione ed esecuzione senza interrupt */
   //DISABILITA INTERRUPT DMA
   DMA1_Stream6->CR &= ~DMA_SxCR_TCIE;
-  HAL_NVIC_DisableIRQ(DMA1_Stream6_IRQn);
+  if (HAL_NVIC_DisableIRQ(DMA1_Stream6_IRQn) != HAL_OK)
+  {
+    Error_Handler();
+  }
   //START ENCODER E TIM4 PER CAMPIONAMENTO
   init_Encoder(&encoder, CPR, RES, 1.0f/Fs);
-  HAL_DMA_Start(&hdma_tim4_up, (uint32_t)&TIM3->CNT, (uint32_t)encoder.timcount_array, DMA_BUFFER_SIZE);
-  __HAL_TIM_ENABLE_DMA(&htim4, TIM_DMA_UPDATE);
-  HAL_TIM_Base_Start(&htim4);
+  if (HAL_DMA_Start(&hdma_tim4_up, (uint32_t)&TIM3->CNT, (uint32_t)encoder.timcount_array, DMA_BUFFER_SIZE) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (__HAL_TIM_ENABLE_DMA(&htim4, TIM_DMA_UPDATE) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_Base_Start(&htim4) != HAL_OK)
+  {
+    Error_Handler();
+  }
   //TIM3 PER LETTURA ENCODER
-  HAL_TIM_Encoder_Start(&htim3, TIM_CHANNEL_ALL);
+  if (HAL_TIM_Encoder_Start(&htim3, TIM_CHANNEL_ALL) != HAL_OK)
+  {
+    Error_Handler();
+  }
   //TIM2 PER PWM E MOTOR DRIVER
   drv_init(&drv, 1, M0_GPIO_Port, M0_Pin, M1_GPIO_Port, M1_Pin, M2_GPIO_Port, M2_Pin, DIR_GPIO_Port, DIR_Pin, RST_SLP_GPIO_Port, RST_SLP_Pin);
   motor_init(&motor, STEPS_PER_REV, &htim2, TIM_CHANNEL_1, FMAXmotor, Fclk, Fs);
@@ -137,7 +152,10 @@ int main(void)
     Error_Handler();
   }  
   //TIM1 PER AZIONE CONTROLLO
-  HAL_TIM_Base_Start_IT(&htim1);
+  if (HAL_TIM_Base_Start_IT(&htim1) != HAL_OK)
+  {
+    Error_Handler();
+  }
 
   /* USER CODE END 2 */
 
