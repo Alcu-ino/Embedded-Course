@@ -211,15 +211,13 @@ void motor_acc(float acc, motor_drv_t *motor_drv)
 #define LIMIT_ACTIVE      GPIO_PIN_RESET  /* finecorsa premuto = livello basso   */
 
 /* bit0 = finecorsa A premuto, bit1 = finecorsa B premuto */
-/*static uint8_t limit_read(void)
+static uint8_t limit_read(void)
 {
     uint8_t s = 0u;
     if (HAL_GPIO_ReadPin(LIMIT_A_GPIO_Port, LIMIT_A_Pin) == LIMIT_ACTIVE) s |= 1u;
     if (HAL_GPIO_ReadPin(LIMIT_B_GPIO_Port, LIMIT_B_Pin) == LIMIT_ACTIVE) s |= 2u;
     return s;
 }
-DEFINISCI I PIN PER I FINECORSA!!
-*/
 
 /* Muove in direzione 'dir' a HOMING_F finche' scatta uno dei finecorsa in 'watch'
    oppure sono stati fatti 'max_steps' passi. Ritorna i passi fatti;
@@ -249,8 +247,7 @@ static uint32_t homing_move(motor_drv_t *motor_drv, direction_t dir,
     uint32_t steps = 0u;
     *hit = 0u;
     while (steps < max_steps) {
-    	uint8_t s = 0;
-    	//uint8_t s = limit_read() & watch; PROTEZIONE FINECORSA!!
+        uint8_t s = limit_read() & watch;
         if (s) { *hit = s; break; }        /* finecorsa intercettato */
 
         if (tim->SR & TIM_SR_UIF) {        /* un periodo = un passo  */

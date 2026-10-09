@@ -77,6 +77,10 @@ void Error_Handler(void);
 #define M1_GPIO_Port GPIOB
 #define M0_Pin GPIO_PIN_6
 #define M0_GPIO_Port GPIOC
+#define LIMIT_B_Pin GPIO_PIN_7
+#define LIMIT_B_GPIO_Port GPIOC
+#define LIMIT_A_Pin GPIO_PIN_8
+#define LIMIT_A_GPIO_Port GPIOC
 #define ENCODER_CH2_Pin GPIO_PIN_8
 #define ENCODER_CH2_GPIO_Port GPIOA
 #define ENCODER_CH1_Pin GPIO_PIN_9

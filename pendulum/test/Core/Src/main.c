@@ -145,6 +145,7 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
+
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
@@ -473,6 +474,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(M0_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : LIMIT_B_Pin LIMIT_A_Pin */
+  GPIO_InitStruct.Pin = LIMIT_B_Pin|LIMIT_A_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
