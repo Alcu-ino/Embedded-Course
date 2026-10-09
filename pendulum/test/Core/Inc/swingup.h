@@ -24,7 +24,7 @@
    I valori qui sotto sono SEGNAPOSTO. */
 #define SWINGUP_M           0.10f      /* [kg]     massa del pendolo                  */
 #define SWINGUP_L           0.7056f      /* [m]      distanza perno - baricentro        */
-#define SWINGUP_J           0.0f     /* [kg*m^2] inerzia rispetto al PERNO
+#define SWINGUP_J           SWINGUP_M * SWINGUP_L * SWINGUP_L     /* [kg*m^2] inerzia rispetto al PERNO
                                           (asta uniforme lunga Lasta: m*Lasta^2/3)    */
 #define SWINGUP_G           9.81f      /* [m/s^2]                                     */
 

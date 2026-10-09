@@ -122,19 +122,22 @@ int main(void)
   HAL_NVIC_DisableIRQ(DMA1_Stream6_IRQn);
   //START ENCODER E TIM4 PER CAMPIONAMENTO
   init_Encoder(&encoder, CPR, RES, 1.0f/Fs);
-  HAL_DMA_Start(&hdma_tim4_up, (uint32_t)&TIM1->CNT, (uint32_t)encoder.timcount_array, DMA_BUFFER_SIZE);
+  HAL_DMA_Start(&hdma_tim4_up, (uint32_t)&TIM3->CNT, (uint32_t)encoder.timcount_array, DMA_BUFFER_SIZE);
   __HAL_TIM_ENABLE_DMA(&htim4, TIM_DMA_UPDATE);
   HAL_TIM_Base_Start(&htim4);
-  //TIM1 PER LETTURA ENCODER
-  HAL_TIM_Encoder_Start(&htim1, TIM_CHANNEL_ALL);
+  //TIM3 PER LETTURA ENCODER
+  HAL_TIM_Encoder_Start(&htim3, TIM_CHANNEL_ALL);
   //TIM2 PER PWM E MOTOR DRIVER
   drv_init(&drv, 1, M0_GPIO_Port, M0_Pin, M1_GPIO_Port, M1_Pin, M2_GPIO_Port, M2_Pin, DIR_GPIO_Port, DIR_Pin, RST_SLP_GPIO_Port, RST_SLP_Pin);
   motor_init(&motor, STEPS_PER_REV, &htim2, TIM_CHANNEL_1, FMAXmotor, Fclk, Fs);
   motor_drv_init(&motor_drv, &drv, &motor);
   //HOMING
-  motor_homing(&motor_drv);
-  //TIM3 PER AZIONE CONTROLLO
-  HAL_TIM_Base_Start_IT(&htim3);
+  swingup_init(&su);
+  if(motor_homing(&motor_drv)==0){
+    Error_Handler();
+  }  
+  //TIM1 PER AZIONE CONTROLLO
+  HAL_TIM_Base_Start_IT(&htim1);
 
   /* USER CODE END 2 */
 
@@ -208,29 +211,25 @@ static void MX_TIM1_Init(void)
 
   /* USER CODE END TIM1_Init 0 */
 
-  TIM_Encoder_InitTypeDef sConfig = {0};
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
   TIM_MasterConfigTypeDef sMasterConfig = {0};
 
   /* USER CODE BEGIN TIM1_Init 1 */
 
   /* USER CODE END TIM1_Init 1 */
   htim1.Instance = TIM1;
-  htim1.Init.Prescaler = 0;
+  htim1.Init.Prescaler = 83;
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim1.Init.Period = 2399;
+  htim1.Init.Period = 999;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim1.Init.RepetitionCounter = 0;
   htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  sConfig.EncoderMode = TIM_ENCODERMODE_TI12;
-  sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
-  sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
-  sConfig.IC1Prescaler = TIM_ICPSC_DIV1;
-  sConfig.IC1Filter = 0;
-  sConfig.IC2Polarity = TIM_ICPOLARITY_RISING;
-  sConfig.IC2Selection = TIM_ICSELECTION_DIRECTTI;
-  sConfig.IC2Prescaler = TIM_ICPSC_DIV1;
-  sConfig.IC2Filter = 0;
-  if (HAL_TIM_Encoder_Init(&htim1, &sConfig) != HAL_OK)
+  if (HAL_TIM_Base_Init(&htim1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim1, &sClockSourceConfig) != HAL_OK)
   {
     Error_Handler();
   }
@@ -317,24 +316,28 @@ static void MX_TIM3_Init(void)
 
   /* USER CODE END TIM3_Init 0 */
 
-  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_Encoder_InitTypeDef sConfig = {0};
   TIM_MasterConfigTypeDef sMasterConfig = {0};
 
   /* USER CODE BEGIN TIM3_Init 1 */
 
   /* USER CODE END TIM3_Init 1 */
   htim3.Instance = TIM3;
-  htim3.Init.Prescaler = 83;
+  htim3.Init.Prescaler = 0;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 999;
+  htim3.Init.Period = 2399;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK)
+  sConfig.EncoderMode = TIM_ENCODERMODE_TI12;
+  sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
+  sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
+  sConfig.IC1Prescaler = TIM_ICPSC_DIV1;
+  sConfig.IC1Filter = 0;
+  sConfig.IC2Polarity = TIM_ICPOLARITY_RISING;
+  sConfig.IC2Selection = TIM_ICSELECTION_DIRECTTI;
+  sConfig.IC2Prescaler = TIM_ICPSC_DIV1;
+  sConfig.IC2Filter = 0;
+  if (HAL_TIM_Encoder_Init(&htim3, &sConfig) != HAL_OK)
   {
     Error_Handler();
   }
@@ -487,7 +490,7 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
-    if (htim->Instance == TIM3)
+    if (htim->Instance == TIM1)
     {
       // l'encoder si aggiorna sempre
       update_Encoder(&encoder);

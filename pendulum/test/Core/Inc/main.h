@@ -67,6 +67,10 @@ void Error_Handler(void);
 #define USART_RX_GPIO_Port GPIOA
 #define LD2_Pin GPIO_PIN_5
 #define LD2_GPIO_Port GPIOA
+#define ENCODER_CH_1_Pin GPIO_PIN_6
+#define ENCODER_CH_1_GPIO_Port GPIOA
+#define ENCODER_CH_2_Pin GPIO_PIN_7
+#define ENCODER_CH_2_GPIO_Port GPIOA
 #define DIR_Pin GPIO_PIN_12
 #define DIR_GPIO_Port GPIOB
 #define RST_SLP_Pin GPIO_PIN_13
@@ -81,10 +85,6 @@ void Error_Handler(void);
 #define LIMIT_B_GPIO_Port GPIOC
 #define LIMIT_A_Pin GPIO_PIN_8
 #define LIMIT_A_GPIO_Port GPIOC
-#define ENCODER_CH2_Pin GPIO_PIN_8
-#define ENCODER_CH2_GPIO_Port GPIOA
-#define ENCODER_CH1_Pin GPIO_PIN_9
-#define ENCODER_CH1_GPIO_Port GPIOA
 #define TMS_Pin GPIO_PIN_13
 #define TMS_GPIO_Port GPIOA
 #define TCK_Pin GPIO_PIN_14
