@@ -132,7 +132,7 @@ int main(void)
   motor_init(&motor, STEPS_PER_REV, &htim2, TIM_CHANNEL_1, FMAXmotor, Fclk, Fs);
   motor_drv_init(&motor_drv, &drv, &motor);
   //HOMING
-  //motor_homing(&motor_drv);
+  motor_homing(&motor_drv);
   //TIM3 PER AZIONE CONTROLLO
   HAL_TIM_Base_Start_IT(&htim3);
 
