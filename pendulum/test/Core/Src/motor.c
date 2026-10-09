@@ -165,11 +165,11 @@ void motor_acc(float acc, motor_drv_t *motor_drv)
     uint32_t pulse     = (uint32_t)(STEP_PULSE_S * tick_hz) + 1u;
     uint32_t min_ticks = 2u * pulse;
 
-    float ticks = tick_hz / F;
-    if (ticks < (float)min_ticks) ticks = (float)min_ticks;
+    uint32_t period = (uint32_t)(tick_hz / F);
+    if (period < min_ticks) period = min_ticks;
 
-    uint32_t arr = (uint32_t)(ticks - 1.0f);
-    uint32_t ccr = pulse;
+    uint32_t arr = period - 1u;
+    uint32_t ccr = period / 2u;  
 
     /* 7. Registri in preload: attivi al prossimo update event */
     __HAL_TIM_SET_AUTORELOAD(htim, arr);
@@ -202,13 +202,13 @@ void motor_acc(float acc, motor_drv_t *motor_drv)
     }
 }
 
-
 /* ========================================================================== */
 /*  Homing                                                                    */
 /* ========================================================================== */
-#define HOMING_F          1000.0f          /* [step/s] velocita' di homing        */
-#define HOMING_MAX_STEPS  20000u          /* oltre questi passi: errore          */
-#define LIMIT_ACTIVE      GPIO_PIN_RESET  /* finecorsa premuto = livello basso   */
+#define HOMING_F          1000.0f          /* [step/s]   velocita' di homing      */
+#define HOMING_ACC        5000.0f          /* [step/s^2] rampa di partenza        */
+#define HOMING_MAX_STEPS  20000u           /* oltre questi passi: errore          */
+#define LIMIT_ACTIVE      GPIO_PIN_SET   /* finecorsa premuto = livello ALTO   */
 
 /* bit0 = finecorsa A premuto, bit1 = finecorsa B premuto */
 static uint8_t limit_read(void)
@@ -219,48 +219,54 @@ static uint8_t limit_read(void)
     return s;
 }
 
-/* Muove in direzione 'dir' a HOMING_F finche' scatta uno dei finecorsa in 'watch'
-   oppure sono stati fatti 'max_steps' passi. Ritorna i passi fatti;
-   in *hit il finecorsa scattato (0 se nessuno). */
+/* Arresto immediato */
+static void homing_stop(motor_drv_t *motor_drv)
+{
+    HAL_TIM_PWM_Stop(motor_drv->motor->htim_PWM, motor_drv->motor->tim_channel);
+    motor_drv->pwm_on   = 0u;
+    motor_drv->fcurrent = 0.0f;
+    motor_drv->state    = MOTOR_DRV_STOPPED;
+}
+
+/* Muove in direzione 'dir' (rampa fino a HOMING_F) finche' scatta uno dei
+   finecorsa in 'watch' oppure sono stati fatti 'max_steps' passi.
+   Ritorna i passi fatti; in *hit il finecorsa scattato (0 se nessuno). */
 static uint32_t homing_move(motor_drv_t *motor_drv, direction_t dir,
                             uint8_t watch, uint32_t max_steps, uint8_t *hit)
 {
-    TIM_HandleTypeDef *htim = motor_drv->motor->htim_PWM;
-    TIM_TypeDef       *tim  = htim->Instance;
-    uint32_t ch = motor_drv->motor->tim_channel;
+    TIM_TypeDef *tim = motor_drv->motor->htim_PWM->Instance;
+    float fs  = motor_drv->motor->fs;
+    float sgn = (dir == DIRECTION_CW) ? 1.0f : -1.0f;
+    uint32_t dt_ms = (fs > 0.0f) ? (uint32_t)(1000.0f/ fs+ 0.5f) : 5u;
 
-    float    tick_hz = motor_drv->motor->fclk / ((float)tim->PSC + 1.0f);
-    uint32_t pulse   = (uint32_t)(STEP_PULSE_S * tick_hz) + 1u;
-    uint32_t arr     = (uint32_t)(tick_hz / HOMING_F) - 1u;
+    homing_stop(motor_drv);
+    tim->SR = ~TIM_SR_UIF;                 /* da qui ogni update = un passo */
 
-    /* STEP fermo, poi direzione, poi ripartenza */
-    HAL_TIM_PWM_Stop(htim, ch);
-    drv_set_direction(motor_drv->drv, dir);
-    DIR_SETUP_DELAY();
-
-    __HAL_TIM_SET_AUTORELOAD(htim, arr);
-    __HAL_TIM_SET_COMPARE(htim, ch, pulse);
-    tim->EGR = TIM_EGR_UG;                 /* carica i registri e azzera CNT */
-    tim->SR  = ~TIM_SR_UIF;                /* azzera il flag di update       */
-    HAL_TIM_PWM_Start(htim, ch);
-
-    uint32_t steps = 0u;
+    uint32_t steps  = 0u;
+    uint32_t t_next = HAL_GetTick();
     *hit = 0u;
+
     while (steps < max_steps) {
         uint8_t s = limit_read() & watch;
         if (s) { *hit = s; break; }        /* finecorsa intercettato */
 
-        if (tim->SR & TIM_SR_UIF) {        /* un periodo = un passo  */
+        if (tim->SR & TIM_SR_UIF) {        /* un fronte di salita = un passo */
             tim->SR = ~TIM_SR_UIF;
             steps++;
         }
+
+        if ((int32_t)(HAL_GetTick() - t_next) >= 0) {   /* ogni 1/fs */
+            t_next += dt_ms;
+            float acc = (fabsf(motor_drv->fcurrent) < HOMING_F) ? sgn * HOMING_ACC : 0.0f;
+            motor_acc(acc, motor_drv);
+        }
     }
 
-    HAL_TIM_PWM_Stop(htim, ch);
+    homing_stop(motor_drv);
     return steps;
 }
 
-/* Homing: va a un finecorsa, inverte e conta i passi fino all'altro,
+/* Homing: va a un finecorsa (zero), inverte e conta i passi fino all'altro,
    inverte e torna indietro di meta'. Bloccante.
    Ritorna la corsa in passi, 0 se fallisce. */
 uint32_t motor_homing(motor_drv_t *motor_drv)
@@ -271,7 +277,7 @@ uint32_t motor_homing(motor_drv_t *motor_drv)
     homing_move(motor_drv, DIRECTION_CCW, 3u, HOMING_MAX_STEPS, &hit1);
     if (hit1 == 0u) return 0u;
 
-    /* 2. inversione e conteggio fino all'altro finecorsa */
+    /* 2. inversione e conteggio fino all'altro finecorsa: n = corsa */
     uint32_t n = homing_move(motor_drv, DIRECTION_CW, (uint8_t)(3u & ~hit1),
                              HOMING_MAX_STEPS, &hit2);
     if (hit2 == 0u) return 0u;
@@ -280,10 +286,7 @@ uint32_t motor_homing(motor_drv_t *motor_drv)
     homing_move(motor_drv, DIRECTION_CCW, 0u, n / 2u, &nessuno);
 
     /* 4. fermo al centro: questo e' lo zero */
-    motor_drv->fcurrent = 0.0f;
     motor_drv->position = 0.0f;
-    motor_drv->pwm_on   = 0u;
-    motor_drv->state    = MOTOR_DRV_STOPPED;
 
     return n;
 }
