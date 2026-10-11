@@ -1,0 +1,7 @@
+# Compatibility with an already-generated CubeIDE Debug makefile.
+# CubeIDE normally discovers Core/Src automatically on its next build. Until
+# then, pass only missing new sources as USER_OBJS; do not edit generated files.
+EXTRA_CORE_C := $(filter-out $(C_SRCS),$(wildcard ../Core/Src/*.c))
+EXTRA_CORE_O := $(patsubst ../%.c,./%.o,$(EXTRA_CORE_C))
+USER_OBJS += $(EXTRA_CORE_O)
+-include $(EXTRA_CORE_O:.o=.d)

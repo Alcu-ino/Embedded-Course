@@ -1,0 +1,8 @@
+../Core/Src/encoder.c:10:17:counts_per_turn	5
+../Core/Src/encoder.c:19:16:parameters_valid	10
+../Core/Src/encoder.c:30:6:init_Encoder	2
+../Core/Src/encoder.c:43:6:reset_Encoder	1
+../Core/Src/encoder.c:49:6:encoder_set_direction	2
+../Core/Src/encoder.c:59:6:encoder_calibrate_down	4
+../Core/Src/encoder.c:78:9:encoder_process_count	14
+../Core/Src/encoder.c:125:6:update_Encoder	1

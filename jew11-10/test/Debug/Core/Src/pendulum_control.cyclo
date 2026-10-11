@@ -1,0 +1,8 @@
+../Core/Src/pendulum_control.c:9:14:clampf	1
+../Core/Src/pendulum_control.c:14:7:pendulum_wrap_angle	1
+../Core/Src/pendulum_control.c:19:19:pendulum_default_config	1
+../Core/Src/pendulum_control.c:36:12:valid_config	23
+../Core/Src/pendulum_control.c:50:5:pendulum_control_init	3
+../Core/Src/pendulum_control.c:64:7:pendulum_balance_acceleration	1
+../Core/Src/pendulum_control.c:80:26:fault	1
+../Core/Src/pendulum_control.c:88:19:pendulum_control_step	23

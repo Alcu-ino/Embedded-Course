@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pendulum simulation replay</title>
+<style>
+:root { color-scheme: light dark; --paper:light-dark(#f8fafc,#12161e);--ink:light-dark(#172030,#e5eaf3);--subtle:light-dark(#526075,#aebad0);--line:light-dark(#d0d7e3,#364258);--accent:light-dark(#176cb5,#72b8fa);--rod:light-dark(#176a47,#68d39b);--warning:light-dark(#865b08,#edbd62) }
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.5 system-ui,sans-serif}main{max-width:940px;margin:auto;padding:24px}h1{font-size:1.65rem;line-height:1.2;margin:0 0 10px}p{margin:8px 0}.muted{color:var(--subtle)}.controls{display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin:20px 0 12px}label{display:flex;flex-direction:column;gap:5px}select,button,input::file-selector-button{font:inherit;padding:7px 12px;border:1px solid var(--line);border-radius:5px;color:var(--ink);background:var(--paper)}button{cursor:pointer}button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:3px}input[type=range]{width:100%;accent-color:var(--accent);margin:10px 0}canvas{display:block;width:100%}.plant{height:340px}.chart{height:170px}#readout{font-variant-numeric:tabular-nums;min-height:48px}#envelope{color:var(--warning)}h2{font-size:1rem;font-weight:600;margin:12px 0 0}.timeline{display:flex;justify-content:space-between;gap:12px}.sr-only{position:absolute;clip:rect(0,0,0,0);width:1px;height:1px;overflow:hidden}.file{font-size:.9rem;margin-top:18px}#message{color:var(--warning)}@media(max-width:500px){main{padding:16px}.plant{height:290px}.controls label:first-child{width:100%}.controls select{max-width:100%}.chart{height:150px}}
+</style>
+</head>
+<body><main>
+<h1>Pendulum simulation replay</h1>
+<p class="muted">Recorded output from the actual C controller and encoder estimator driving a simulated plant.</p>
+<p id="envelope">Hypothetical actuator: 3 m/s², 1 m/s; rail length 0.90 m. Hardware capability is unverified.</p>
+<div class="controls">
+<label>Scenario<select id="scenario"></select></label>
+<button id="play" type="button">Play</button>
+<label>Playback speed<select id="speed"><option value="1">1×</option><option value="4" selected>4×</option><option value="8">8×</option></select></label>
+</div>
+<div class="timeline"><label for="time">Time <span id="timevalue">0.00 s</span></label><span id="mode" aria-live="polite">Swing-up</span></div>
+<input id="time" type="range" min="0" max="80" value="0" step=".01" aria-label="Replay time in seconds">
+<canvas id="plant" class="plant" role="img" aria-label="Cart and rod replay on a 0.90 metre rail"></canvas>
+<p id="readout"></p>
+<h2>Upright angle error [rad]</h2>
+<canvas id="angle" class="chart" role="img" aria-label="Upright angle error against time; click to select a time"></canvas>
+<h2>Cart position [m]</h2>
+<canvas id="position" class="chart" role="img" aria-label="Cart position against time; click to select a time"></canvas>
+<p class="muted">The green rod shows the assumed 0.35 m / 0.65 m geometry. The dot marks its centre of mass. Scrub or click either chart to inspect a time.</p>
+<label class="file">Load a newly generated trajectory CSV<input id="file" type="file" accept=".csv,text/csv"></label>
+<p id="message" role="status"></p>
+</main>
+<script src="viewer-data.js"></script>
+<script>
+(function(){
+'use strict';
+const data=window.PENDULUM_REPLAY||{}, element=id=>document.getElementById(id);
+const picker=element('scenario'),time=element('time'),play=element('play'),speed=element('speed');
+const canvases=['plant','angle','position'].map(element);let rows=[],current=0,playing=false,last=0,lastMode='';
+for(const [key,value] of Object.entries(data)){const option=document.createElement('option');option.value=key;option.textContent=value.label;picker.append(option);}
+const wrap=a=>Math.atan2(Math.sin(a-Math.PI),Math.cos(a-Math.PI));
+function colors(){const s=getComputedStyle(document.documentElement);return Object.fromEntries(['paper','ink','subtle','line','accent','rod'].map(k=>[k,s.getPropertyValue('--'+k).trim()]));}
+// Canvas accepts CSS light-dark() in modern engines. Resolve through a DOM style
+// so older canvas colour parsers also receive an actual computed RGB colour.
+const probe=document.createElement('span');probe.hidden=true;document.body.append(probe);
+function color(name){probe.style.color='var(--'+name+')';return getComputedStyle(probe).color;}
+function context(canvas){const width=canvas.clientWidth,height=canvas.clientHeight,dpr=window.devicePixelRatio||1;canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);const ctx=canvas.getContext('2d');ctx.scale(dpr,dpr);ctx.font='13px system-ui';ctx.fillStyle=color('ink');ctx.strokeStyle=color('line');return {ctx,width,height};}
+function rowAt(t){let lo=0,hi=rows.length-1;while(lo<hi){let mid=(lo+hi+1)>>1;if(rows[mid][0]<=t)lo=mid;else hi=mid-1;}return rows[lo];}
+function drawPlant(row){const {ctx:c,width:w,height:h}=context(canvases[0]),scale=Math.min(w/1.45,(h-38)/1.4),cx=w/2,cy=h/2,x=cx+row[1]*scale;
+ c.lineWidth=2;c.beginPath();c.moveTo(cx-.45*scale,cy+22);c.lineTo(cx+.45*scale,cy+22);c.stroke();
+ for(const side of [-1,1]){const end=cx+side*.45*scale;c.beginPath();c.moveTo(end,cy+6);c.lineTo(end,cy+33);c.stroke();c.textAlign=side<0?'left':'right';c.fillText((side<0?'−':'+')+'0.45 m',end,cy+51);}
+ c.fillStyle=color('accent');c.fillRect(x-21,cy-2,42,22);c.fillStyle=color('ink');for(const dx of [-12,12]){c.beginPath();c.arc(x+dx,cy+22,4,0,Math.PI*2);c.fill();}
+ const sx=Math.sin(row[3]),co=Math.cos(row[3]);c.strokeStyle=color('rod');c.lineWidth=5;c.beginPath();c.moveTo(x-.35*scale*sx,cy-.35*scale*co);c.lineTo(x+.65*scale*sx,cy+.65*scale*co);c.stroke();
+ c.fillStyle=color('rod');c.beginPath();c.arc(x+.15*scale*sx,cy+.15*scale*co,7,0,Math.PI*2);c.fill();c.fillStyle=color('ink');c.beginPath();c.arc(x,cy,5,0,Math.PI*2);c.fill();
+}
+function drawChart(canvas,getValue,lo,hi,unit){const {ctx:c,width:w,height:h}=context(canvas),left=52,right=15,top=12,bottom=32,pw=w-left-right,ph=h-top-bottom,end=rows.at(-1)[0],xx=t=>left+t/end*pw,yy=v=>top+(hi-v)/(hi-lo)*ph;
+ c.lineWidth=1;c.strokeRect(left,top,pw,ph);c.fillStyle=color('subtle');c.textAlign='right';for(let j=0;j<=4;j++){const v=lo+(hi-lo)*j/4,y=yy(v);c.fillText(v.toFixed(unit==='rad'?1:2),left-8,y+4);if(j>0&&j<4){c.beginPath();c.moveTo(left,y);c.lineTo(left+pw,y);c.stroke();}}
+ const tickCount=w<450?3:5;c.textAlign='center';for(let j=0;j<tickCount;j++){const t=end*j/(tickCount-1);c.fillText(t.toFixed(0)+' s',xx(t),h-8);}
+ c.save();c.beginPath();c.rect(left,top,pw,ph);c.clip();c.strokeStyle=color('accent');c.lineWidth=1.4;c.beginPath();let previous=null;for(const r of rows){const value=getValue(r);if(previous===null||(unit==='rad'&&Math.abs(value-previous)>Math.PI))c.moveTo(xx(r[0]),yy(value));else c.lineTo(xx(r[0]),yy(value));previous=value;}c.stroke();
+ c.strokeStyle=color('ink');c.lineWidth=1;c.beginPath();c.moveTo(xx(current),top);c.lineTo(xx(current),top+ph);c.stroke();const row=rowAt(current);c.fillStyle=color('accent');c.beginPath();c.arc(xx(current),yy(getValue(row)),4,0,Math.PI*2);c.fill();c.restore();
+ canvas.onclick=e=>{const bounds=canvas.getBoundingClientRect();current=Math.max(0,Math.min(end,(e.clientX-bounds.left-left)/pw*end));time.value=current;draw();};
+}
+function draw(){if(!rows.length)return;const row=rowAt(current);element('timevalue').textContent=current.toFixed(2)+' s';const mode=row[6]===1?'Balance':(picker.value==='legacy_limits'&&current>=rows.at(-1)[0]?'Timeout':'Swing-up');if(mode!==lastMode){element('mode').textContent=mode;lastMode=mode;}element('readout').textContent='Cart '+row[1].toFixed(3)+' m  ·  Speed '+row[2].toFixed(3)+' m/s  ·  Upright error '+wrap(row[3]).toFixed(3)+' rad  ·  Acceleration '+row[5].toFixed(3)+' m/s²';drawPlant(row);drawChart(canvases[1],r=>wrap(r[3]),-Math.PI,Math.PI,'rad');drawChart(canvases[2],r=>r[1],-.45,.45,'m');}
+function select(){playing=false;play.textContent='Play';rows=data[picker.value]?.rows||[];current=0;time.value=0;time.max=rows.length?rows.at(-1)[0]:0;element('envelope').textContent=picker.value==='legacy_limits'?'Original motor limits: 0.314 m/s², 0.157 m/s. This scenario times out without reaching upright.':'Hypothetical actuator: 3 m/s², 1 m/s; rail length 0.90 m. Hardware capability is unverified.';draw();}
+picker.addEventListener('change',select);time.addEventListener('input',()=>{current=Number(time.value);draw();});play.addEventListener('click',()=>{if(!rows.length)return;if(current>=rows.at(-1)[0]){current=0;time.value=0;}playing=!playing;play.textContent=playing?'Pause':'Play';last=performance.now();});
+function frame(now){if(playing&&rows.length){current=Math.min(rows.at(-1)[0],current+(now-last)/1000*Number(speed.value));time.value=current;if(current>=rows.at(-1)[0]){playing=false;play.textContent='Play';}draw();}last=now;requestAnimationFrame(frame);}requestAnimationFrame(frame);
+element('file').addEventListener('change',async event=>{try{const file=event.target.files[0];if(!file)return;const lines=(await file.text()).trim().split(/\r?\n/),header=lines.shift().split(','),keys=['time_s','x_m','v_m_s','theta_rad','omega_rad_s','accel_m_s2','mode'],indexes=keys.map(k=>header.indexOf(k));if(indexes.some(i=>i<0))throw Error('This CSV does not have the simulation trajectory columns.');const loaded=lines.map(line=>{const cells=line.split(',');return indexes.map(i=>Number(cells[i]));});if(!loaded.length||loaded.some(row=>row.some(v=>!Number.isFinite(v))))throw Error('CSV contains missing or invalid numeric values.');if(loaded.some((r,i)=>i&&r[0]<loaded[i-1][0]))throw Error('CSV times must be sorted.');data.loaded={label:file.name,rows:loaded};let option=picker.querySelector('option[value="loaded"]');if(!option){option=document.createElement('option');option.value='loaded';picker.append(option);}option.textContent=file.name;picker.value='loaded';element('message').textContent='Loaded '+file.name+'; the actuator assumptions depend on the scenario that produced this file.';select();}catch(error){element('message').textContent=error.message;}});
+new ResizeObserver(draw).observe(element('plant'));window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',draw);if(!picker.options.length)element('message').textContent='Run the simulation and viewer_build.py, or choose a CSV below.';else select();
+})();
+</script>
+</body></html>

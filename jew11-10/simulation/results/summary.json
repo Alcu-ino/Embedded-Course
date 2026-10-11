@@ -1,0 +1,63 @@
+{
+  "scope": "Software in the loop; actual firmware controller and encoder estimator; ideal cart acceleration actuator.",
+  "capable_profile": {
+    "acceleration_m_s2": 3.0,
+    "speed_m_s": 1.0,
+    "rail_length_m": 0.9,
+    "status": "SIMULATION ASSUMPTION ONLY; not verified hardware capability"
+  },
+  "legacy_profile": {
+    "acceleration_m_s2": 0.31415927,
+    "speed_m_s": 0.15707963,
+    "expected_result": "bounded timeout, not successful swing-up"
+  },
+  "source_sha256": {
+    "simulation/plant_sim.c": "e5586793f1d4fa9c075e97bef8b931798e76963392e2f3ad054a11ff45da2ad2",
+    "test/Core/Src/pendulum_control.c": "f7b53b1958b7e37513d01a34a4c632791d4cb16e5fc73e97dbc27d8644cbc766",
+    "test/Core/Src/encoder.c": "cf0c87de1f53030eb885abb688d7bfd05d9376f85af0d92403fd9dfcc778d9d8"
+  },
+  "results": [
+    {
+      "case": "swingup",
+      "passed": true,
+      "message": "PASS swingup: capture 12.005s; final 10s angle RMS 0.00125rad, cart RMS 0.00478m; max |x| 0.3001m |v| 0.7297m/s |a| 3.0000m/s^2; captures 1",
+      "csv": "swingup.csv"
+    },
+    {
+      "case": "offset",
+      "passed": true,
+      "message": "PASS offset: capture 56.043s; final 10s angle RMS 0.00125rad, cart RMS 0.00480m; max |x| 0.4200m |v| 1.0000m/s |a| 3.0000m/s^2; captures 1",
+      "csv": "offset.csv"
+    },
+    {
+      "case": "mirror",
+      "passed": true,
+      "message": "PASS mirror: capture 58.930s; final 10s angle RMS 0.00126rad, cart RMS 0.00497m; max |x| 0.4200m |v| 1.0000m/s |a| 3.0000m/s^2; captures 1",
+      "csv": "mirror.csv"
+    },
+    {
+      "case": "model_error",
+      "passed": true,
+      "message": "PASS model_error: capture 12.043s; final 10s angle RMS 0.00125rad, cart RMS 0.00513m; max |x| 0.3818m |v| 0.9342m/s |a| 3.0000m/s^2; captures 1",
+      "csv": "model_error.csv"
+    },
+    {
+      "case": "friction",
+      "passed": true,
+      "message": "PASS friction: capture 12.268s; final 10s angle RMS 0.00294rad, cart RMS 0.01270m; max |x| 0.2778m |v| 0.7041m/s |a| 3.0000m/s^2; captures 1",
+      "csv": "friction.csv"
+    },
+    {
+      "case": "balance",
+      "passed": true,
+      "message": "PASS balance: capture 0.019s; final 10s angle RMS 0.00126rad, cart RMS 0.00489m; max |x| 0.1185m |v| 0.2309m/s |a| 3.0000m/s^2; captures 1",
+      "csv": "balance.csv"
+    },
+    {
+      "case": "legacy_limits",
+      "passed": true,
+      "message": "PASS legacy_limits: bounded timeout at 90.037s; no swing-up claimed; max |x|=0.0689m |v|=0.1571m/s",
+      "csv": "legacy_limits.csv"
+    }
+  ]
+}
