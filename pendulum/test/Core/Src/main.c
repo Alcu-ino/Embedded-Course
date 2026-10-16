@@ -66,6 +66,7 @@ volatile float acc = 0.0;
 swingup_t su;
 volatile uint8_t control_on = 0u;
 volatile  bool LIMITE = false;
+volatile uint8_t contaHit = 0u;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -544,6 +545,11 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
   if(GPIO_Pin == LIMIT_Pin){
 	  LIMITE = true;
+    contaHit++;
+  }
+  if(contaHit>2){
+    HAL_TIM_PWM_Stop(htim2, ALL_CHANNELS);
+    motor_drv.fcurrent = 0.0f;
   }
 }
 /* USER CODE END 4 */
