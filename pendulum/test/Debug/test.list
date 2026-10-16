@@ -1703,8 +1703,8 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
  8000dd8:	f44f 1388 	mov.w	r3, #1114112	@ 0x110000
  8000ddc:	61bb      	str	r3, [r7, #24]
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
- 8000dde:	2300      	movs	r3, #0
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+ 8000dde:	2302      	movs	r3, #2
  8000de0:	61fb      	str	r3, [r7, #28]
   HAL_GPIO_Init(LIMIT_GPIO_Port, &GPIO_InitStruct);
  8000de2:	f107 0314 	add.w	r3, r7, #20

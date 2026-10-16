@@ -160,6 +160,7 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
+
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
@@ -492,7 +493,7 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin : LIMIT_Pin */
   GPIO_InitStruct.Pin = LIMIT_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
   HAL_GPIO_Init(LIMIT_GPIO_Port, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
