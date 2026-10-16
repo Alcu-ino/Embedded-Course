@@ -142,15 +142,15 @@ int main(void)
   motor_init(&motor, STEPS_PER_REV, &htim2, TIM_CHANNEL_1, FMAXmotor, Fclk, Fs);
   motor_drv_init(&motor_drv, &drv, &motor);
   //HOMING
-  swingup_init(&su);
-  if(motor_homing(&motor_drv)==0){
-    Error_Handler();
-  }  
-  //TIM1 PER AZIONE CONTROLLO
-  if (HAL_TIM_Base_Start_IT(&htim1) != HAL_OK)
-  {
-    Error_Handler();
-  }
+  //swingup_init(&su);
+  //if(motor_homing(&motor_drv)==0){
+  //  Error_Handler();
+  //}  
+  ////TIM1 PER AZIONE CONTROLLO
+  //if (HAL_TIM_Base_Start_IT(&htim1) != HAL_OK)
+  //{
+  //  Error_Handler();
+  //}
 
   /* USER CODE END 2 */
 
@@ -159,10 +159,10 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-
+    update_Encoder(&encoder);
     /* USER CODE BEGIN 3 */
   }
-  /* USER CODE END 3 */
+  /* USER CODE END 3 *  drv_init(&drv, 1, M0_GPIO_Port, M0_Pin, M1_GPIO_Port, M1_Pin, M2_GPIO_Port, M2_Pin, DIR_GPIO_Port, DIR_Pin, RST_SLP_GPIO_Port, RST_SLP_Pin);/
 }
 
 /**
