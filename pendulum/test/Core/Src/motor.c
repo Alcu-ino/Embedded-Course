@@ -5,6 +5,7 @@
  *      Author: vito
  */
 #include "motor.h"
+#include <stdbool.h>
 
 /* Ritardo per t_SETUP di DIR (DRV8825 >= 650 ns).
    A 168 MHz ogni iterazione costa ~5-8 cicli: 60 iterazioni = ~2-3 us. */
@@ -211,9 +212,6 @@ void motor_acc(float acc, motor_drv_t *motor_drv)
 #define HOMING_F          1000.0f          /* [step/s]   velocita' di homing      */
 #define HOMING_ACC        5000.0f          /* [step/s^2] rampa di partenza        */
 #define HOMING_MAX_STEPS  20000u           /* oltre questi passi: errore          */
-#define LIMIT      GPIO_PIN_SET   /* finecorsa premuto = livello ALTO   */
-volatile bool LIMITE = FALSE;
-/* bit0 = finecorsa A premuto, bit1 = finecorsa B premuto */
 
 void motor_step(uint32_t steps, motor_drv_t *motor_drv)
 {
@@ -230,52 +228,42 @@ void motor_step(uint32_t steps, motor_drv_t *motor_drv)
     }
 }
 
-static void motor_homing(motor_drv_t *motor_drv){
-    uint32_t steps = 0;
-    uint32_t passi = 0;
+void motor_homing(motor_drv_t *motor_drv, volatile bool *LIMITE)
+{
     TIM_HandleTypeDef *htim = motor_drv->motor->htim_PWM;
-    TIM_TypeDef       *tim  = htim->Instance;
-    uint32_t psc = tim->PSC;
-    uint32_t ch  = motor_drv->motor->tim_channel;
+    uint32_t ch = motor_drv->motor->tim_channel;
 
-    for(int i = 0; i < 600; i++){
-	    motor_acc(500.0f, motor_drv);
-	    HAL_Delay(1);
-	}
-    motor(0.0f, motor_drv);
-
-	while(!LIMITE){
-    }
-    if (LIMITE) {
-        HAL_TIM_PWM_Stop(htim, ch);
-        LIMITE = FALSE;
-
-        motor_drv->fcurrent=0.0f;
-        motor_drv->position = 0.0f;
-        
-        for(int i = 0; i < 600; i++){
-	        motor_acc(-500.0f, motor_drv);
-	        HAL_Delay(1);
-	    }
-        motor(0.0f, motor_drv);
+    /* --- 1° finecorsa: avanti --- */
+    *LIMITE = false;                     /* scarta eventuali eventi vecchi */
+    for (int i = 0; i < 600; i++) {
+        motor_acc(500.0f, motor_drv);
         HAL_Delay(1);
     }
-    while(!LIMITE){
+    motor_acc(0.0f, motor_drv);
+
+    while (!*LIMITE) { }                 /* attende l'EXTI */
+
+    HAL_TIM_PWM_Stop(htim, ch);
+    motor_drv->fcurrent = 0.0f;
+    motor_drv->position = 0.0f;
+
+    /* --- 2° finecorsa: indietro --- */
+    for (int i = 0; i < 600; i++) {
+        motor_acc(-500.0f, motor_drv);
+        HAL_Delay(1);
     }
-    if(LIMITE){
-        HAL_TIM_PWM_Stop(htim, ch);
-        motor_drv->fcurrent=0.0f;
-        LIMITE = FALSE;
-    }
-    passi = motor_drv->position/2;
+    motor_acc(0.0f, motor_drv);
+
+    *LIMITE = false;                     /* azzera DOPO essersi staccato dal finecorsa:
+                                            i rimbalzi al rilascio non devono contare */
+    while (!*LIMITE) { }
+
+    HAL_TIM_PWM_Stop(htim, ch);
+    motor_drv->fcurrent = 0.0f;
+    *LIMITE = false;
+
+    /* --- centro corsa --- */
+    int32_t passi = (int32_t)(-motor_drv->position / 2.0f);
     motor_step(passi, motor_drv);
     motor_drv->position = 0.0f;
-}
-
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
-{
-  if(GPIO_Pin == LIMIT){
-
-	  LIMITE = TRUE;
-  }
 }

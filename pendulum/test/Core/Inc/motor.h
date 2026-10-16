@@ -10,7 +10,7 @@
 #include "main.h"
 #include <math.h>
 #include <stdint.h>
-
+#include <stdbool.h>
 /* TIM2 (e TIM5) su STM32F4 hanno contatore a 32 bit.
    Con un timer a 16 bit usare 0xFFFFUL (fmin sale a fclk/65536). */
 #define ARRMAX 0xFFFFFFFFUL
@@ -90,5 +90,6 @@ void motor_init(motor_t *motor, uint16_t steps_per_rev, TIM_HandleTypeDef *htim,
                 uint32_t tim_channel, float fmax, float fclk, float fs);
 void motor_drv_init(motor_drv_t *motor_drv, drv_t *drv, motor_t *motor);
 void motor_acc(float acc, motor_drv_t *motor_drv);
-uint32_t motor_homing(motor_drv_t *motor_drv);
+void motor_homing(motor_drv_t *motor_drv, volatile bool *LIMITE);
+void motor_step(uint32_t steps, motor_drv_t *motor_drv);
 #endif /* MOTOR_H */

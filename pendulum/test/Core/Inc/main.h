@@ -83,6 +83,7 @@ void Error_Handler(void);
 #define M0_GPIO_Port GPIOC
 #define LIMIT_Pin GPIO_PIN_7
 #define LIMIT_GPIO_Port GPIOC
+#define LIMIT_EXTI_IRQn EXTI9_5_IRQn
 #define TMS_Pin GPIO_PIN_13
 #define TMS_GPIO_Port GPIOA
 #define TCK_Pin GPIO_PIN_14
