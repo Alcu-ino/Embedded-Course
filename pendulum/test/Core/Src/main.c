@@ -118,16 +118,16 @@ int main(void)
   /* USER CODE BEGIN 2 */
   /* Inizializzazione ed esecuzione senza interrupt */
   //DISABILITA INTERRUPT DMA
-  DMA1_Stream6->CR &= ~DMA_SxCR_TCIE;
-  HAL_NVIC_DisableIRQ(DMA1_Stream6_IRQn);
+  //DMA1_Stream6->CR &= ~DMA_SxCR_TCIE;
+  //HAL_NVIC_DisableIRQ(DMA1_Stream6_IRQn);
 
   //START ENCODER E TIM4 PER CAMPIONAMENTO
   init_Encoder(&encoder, CPR, RES, 1.0f/Fs);
+  __HAL_TIM_ENABLE_DMA(&htim4, TIM_DMA_UPDATE);
   if (HAL_DMA_Start(&hdma_tim4_up, (uint32_t)&TIM3->CNT, (uint32_t)encoder.timcount_array, DMA_BUFFER_SIZE) != HAL_OK)
   {
     Error_Handler();
   }
-  __HAL_TIM_ENABLE_DMA(&htim4, TIM_DMA_UPDATE);
   if (HAL_TIM_Base_Start(&htim4) != HAL_OK)
   {
     Error_Handler();
@@ -338,7 +338,7 @@ static void MX_TIM3_Init(void)
   htim3.Instance = TIM3;
   htim3.Init.Prescaler = 0;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 2399;
+  htim3.Init.Period = 65535;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   sConfig.EncoderMode = TIM_ENCODERMODE_TI12;
@@ -489,11 +489,11 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(M0_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : LIMIT_B_Pin LIMIT_A_Pin */
-  GPIO_InitStruct.Pin = LIMIT_B_Pin|LIMIT_A_Pin;
+  /*Configure GPIO pin : LIMIT_Pin */
+  GPIO_InitStruct.Pin = LIMIT_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  HAL_GPIO_Init(LIMIT_GPIO_Port, &GPIO_InitStruct);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
@@ -533,6 +533,14 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
           acc = su.acc;        /* solo per debug */
       }
     }
+}
+HAL_DMA_XferHalfCpltCallback(DMA_HandleTypeDef *hdma)
+{
+    if (hdma->Instance == DMA1_Stream6){};
+}
+HAL_DMA_XferCpltCallback(DMA_HandleTypeDef *hdma)
+{
+    if (hdma->Instance == DMA1_Stream6){};
 }
 /* USER CODE END 4 */
 

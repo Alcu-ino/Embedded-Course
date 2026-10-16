@@ -81,10 +81,8 @@ void Error_Handler(void);
 #define M1_GPIO_Port GPIOB
 #define M0_Pin GPIO_PIN_6
 #define M0_GPIO_Port GPIOC
-#define LIMIT_B_Pin GPIO_PIN_7
-#define LIMIT_B_GPIO_Port GPIOC
-#define LIMIT_A_Pin GPIO_PIN_8
-#define LIMIT_A_GPIO_Port GPIOC
+#define LIMIT_Pin GPIO_PIN_7
+#define LIMIT_GPIO_Port GPIOC
 #define TMS_Pin GPIO_PIN_13
 #define TMS_GPIO_Port GPIOA
 #define TCK_Pin GPIO_PIN_14
