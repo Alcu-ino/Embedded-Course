@@ -40,7 +40,7 @@
 #define Fclk 84000000.0f
 #define Fs 1000.0f//1/2pi radq(g/l)
 #define STEPS_PER_REV 200
-#define FMAXmotor 1000.0f //DRV8825 8V [Hz]
+#define FMAXmotor 32000.0f //DRV8825 8V [Hz]
 #define ANGOLO_MIN 165
 #define ANGOLO_MAX 195
 /* USER CODE END PD */
@@ -92,7 +92,7 @@ static void MX_TIM4_Init(void);
   */
 int main(void)
 {
-
+//PASSI;SEGNO LQR AL CONTRARIO, ACCELLERAZIONE BASSISSIMA,SWINGUP poca acc
   /* USER CODE BEGIN 1 */
   /* USER CODE END 1 */
 
@@ -533,24 +533,24 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
           lqr_controller(&encoder, &motor_drv, &acc);
           motor_acc(acc, &motor_drv);
       }
-      else {
-          /* stato SWINGUP: swingup_update() chiama gia' motor_acc() */
+      /*else {
+          // stato SWINGUP: swingup_update() chiama gia' motor_acc()
           swingup_update(&su, &encoder, &motor_drv);
-          acc = su.acc;        /* solo per debug */
-      }
+          acc = su.acc;
+      }*/
     }
 }
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
   if(GPIO_Pin == LIMIT_Pin){
-	  LIMITE = true;
+	LIMITE = true;
     contaHit++;
   }
-  if(contaHit>2){
-    HAL_TIM_PWM_Stop(htim2, ALL_CHANNELS);
+  /*if(contaHit>2){
+    HAL_TIM_PWM_Stop(&htim2, motor_drv->motor->tim_channel);
     motor_drv.fcurrent = 0.0f;
-  }
+  }*/
 }
 /* USER CODE END 4 */
 

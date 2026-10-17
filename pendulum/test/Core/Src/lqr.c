@@ -17,6 +17,6 @@ void lqr_controller(Encoder_HandleTypeDef *encoder, motor_drv_t *motor_drv, floa
     for(int i = 0; i < 4; i++){
         a_m_s2 -= K[i] * x[i];
     }
-    *acc = a_m_s2/m_per_step;
+    *acc = a_m_s2/m_per_step*32;
 }
 

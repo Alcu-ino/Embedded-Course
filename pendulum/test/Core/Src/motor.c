@@ -215,16 +215,16 @@ void motor_acc(float acc, motor_drv_t *motor_drv)
 
 void motor_step(uint32_t steps, motor_drv_t *motor_drv)
 {
-    for(int i = 0; i < 600; i++){
-	    motor_acc(500.0f, motor_drv);
+    for(int i = 0; i < 1900; i++){
+	    motor_acc(32*500.0f, motor_drv);
 	    HAL_Delay(1);
         if (motor_drv->position >= steps){
-            motor_acc(0.0f, motor_drv);
+            //motor_acc(0.0f, motor_drv);
             break;
         }
 	}
-    if (motor_drv->position >= steps){
-        motor_acc(0.0f, motor_drv);
+    while(motor_drv->position < steps){
+    	motor_acc(0.0f, motor_drv);
     }
 }
 
@@ -235,35 +235,35 @@ void motor_homing(motor_drv_t *motor_drv, volatile bool *LIMITE)
 
     /* --- 1° finecorsa: avanti --- */
     *LIMITE = false;                     /* scarta eventuali eventi vecchi */
-    for (int i = 0; i < 600; i++) {
-        motor_acc(500.0f, motor_drv);
+    for (int i = 0; i < 1000; i++) {
+        motor_acc(32*500.0f, motor_drv);
         HAL_Delay(1);
     }
-    motor_acc(0.0f, motor_drv);
 
-    while (!*LIMITE) { }                 /* attende l'EXTI */
+    while (!*LIMITE) {}                 /* attende l'EXTI */
 
     HAL_TIM_PWM_Stop(htim, ch);
     motor_drv->fcurrent = 0.0f;
     motor_drv->position = 0.0f;
 
     /* --- 2° finecorsa: indietro --- */
-    for (int i = 0; i < 600; i++) {
-        motor_acc(-500.0f, motor_drv);
+    for (int i = 0; i < 1000; i++) {
+        motor_acc(-32*500.0f, motor_drv);
         HAL_Delay(1);
     }
-    motor_acc(0.0f, motor_drv);
+    //
 
     *LIMITE = false;                     /* azzera DOPO essersi staccato dal finecorsa:
                                             i rimbalzi al rilascio non devono contare */
-    while (!*LIMITE) { }
+    while (!*LIMITE) {}
 
     HAL_TIM_PWM_Stop(htim, ch);
     motor_drv->fcurrent = 0.0f;
     *LIMITE = false;
 
     /* --- centro corsa --- */
-    int32_t passi = (int32_t)(-motor_drv->position / 2.0f);
+    int32_t passi = (int32_t)(-motor_drv->position / 64.0f);
     motor_step(passi, motor_drv);
+    HAL_TIM_PWM_Stop(htim, ch);
     motor_drv->position = 0.0f;
 }
