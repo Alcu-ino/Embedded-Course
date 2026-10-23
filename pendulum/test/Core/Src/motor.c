@@ -10,7 +10,6 @@
 /* Ritardo per t_SETUP di DIR (DRV8825 >= 650 ns).
    A 168 MHz ogni iterazione costa ~5-8 cicli: 60 iterazioni = ~2-3 us. */
 #define DIR_SETUP_DELAY() do { for (volatile int _i = 0; _i < 60; _i++) { __NOP(); } } while (0)
-
 /* ========================================================================== */
 /*  DRV8825                                                                   */
 /* ========================================================================== */

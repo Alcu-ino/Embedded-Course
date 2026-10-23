@@ -67,6 +67,7 @@ volatile float acc = 0.0;
 swingup_t su;
 volatile uint8_t control_on = 0u;
 volatile uint8_t guasto = 0u;
+volatile uint8_t pronto = 0u;
 volatile  bool LIMITE = false;
 volatile uint8_t contaHit = 0u;
 volatile uint8_t sistemapronto = 0u;
@@ -154,6 +155,7 @@ int main(void)
   motor_drv_init(&motor_drv, &drv, &motor);
   //HOMING
   swingup_init(&su);
+  while(!pronto){}
   motor_homing(&motor_drv,&LIMITE);
   sistemapronto = 1u;
   //TIM1 PER AZIONE CONTROLLO
@@ -519,8 +521,8 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin : B1_Pin */
   GPIO_InitStruct.Pin = B1_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Mode = GPIO_MODE_EVT_RISING;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
   HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : USART_TX_Pin USART_RX_Pin */
@@ -608,6 +610,9 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
       control_on = 0u;
       guasto = 1u;
     }
+  }
+  if(GPIO_Pin == B1_Pin){
+    pronto = 1u;
   }
 }
 /* USER CODE END 4 */
