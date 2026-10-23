@@ -83,7 +83,7 @@ swingup_stato_t swingup_update(swingup_t *su,
     su->acc = acc;
 
     /* 7. Comando al motore [step/s^2] */
-    motor_acc(acc, motor_drv);
+    motor_acc(32*acc, motor_drv);
 
     return SWINGUP_IN_CORSO;
 }

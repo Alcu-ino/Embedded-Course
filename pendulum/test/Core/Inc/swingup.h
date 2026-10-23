@@ -55,7 +55,7 @@
 /* Richiamo del carrello verso il centro (0 = disattivato).
    KX in 1/s^2 (per step di posizione), KV in 1/s (per step/s di velocita').
    Senza richiamo lo swing-up ignora la posizione: attenzione ai finecorsa. */
-#define SWINGUP_KX          0.0f
+#define SWINGUP_KX          100.0f
 #define SWINGUP_KV          0.0f
 
 /* ------------------------------------------------------------------------ */

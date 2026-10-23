@@ -11,7 +11,7 @@
 
 void lqr_controller(Encoder_HandleTypeDef *encoder, motor_drv_t *motor_drv, float *acc){
     float a_m_s2 = 0;
-    float K[4] = {-10.0000, -38.2160, -235.6668, -69.6459};
+    float K[4] = {-10.0000, -38.2160, +90.6668, +40.6459}; -10.0000  -37.9868 +227.1006  +64.2892
     //float dt = 1.0f/ motor_drv->motor->fs;
     float x[4] = {(motor_drv->position*m_per_step)/32.0f, motor_drv->fcurrent * m_per_step/32.0f, encoder->rad_angle - (float)M_PI, encoder->w};
     for(int i = 0; i < 4; i++){
