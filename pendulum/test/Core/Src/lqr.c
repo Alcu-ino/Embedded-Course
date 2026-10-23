@@ -13,10 +13,10 @@ void lqr_controller(Encoder_HandleTypeDef *encoder, motor_drv_t *motor_drv, floa
     float a_m_s2 = 0;
     float K[4] = {-10.0000, -38.2160, -235.6668, -69.6459};
     //float dt = 1.0f/ motor_drv->motor->fs;
-    float x[4] = {(motor_drv->position*m_per_step)/32.0f, motor_drv->fcurrent * m_per_step, encoder->rad_angle - (float)M_PI, encoder->w};
+    float x[4] = {(motor_drv->position*m_per_step)/32.0f, motor_drv->fcurrent * m_per_step/32.0f, encoder->rad_angle - (float)M_PI, encoder->w};
     for(int i = 0; i < 4; i++){
         a_m_s2 -= K[i] * x[i];
     }
-    *acc = a_m_s2/m_per_step*32;
+    *acc = a_m_s2/(m_per_step/32.0f);
 }
 
