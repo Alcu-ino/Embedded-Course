@@ -41,8 +41,8 @@
 #define Fs 1000.0f//1/2pi radq(g/l)
 #define STEPS_PER_REV 200
 #define FMAXmotor 32000.0f //DRV8825 8V [Hz]
-#define ANGOLO_MIN 165
-#define ANGOLO_MAX 195
+#define ANGOLO_MIN 175
+#define ANGOLO_MAX 185
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
