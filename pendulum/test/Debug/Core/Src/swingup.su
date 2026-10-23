@@ -1,0 +1,2 @@
+../Core/Src/swingup.c:35:6:swingup_init	16	static
+../Core/Src/swingup.c:43:17:swingup_update	64	static

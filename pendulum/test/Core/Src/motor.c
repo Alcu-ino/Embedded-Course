@@ -5,94 +5,283 @@
  *      Author: vito
  */
 #include "motor.h"
+#include <stdbool.h>
 
-void drv_set_microsteps(drv_t *drv, drv_microstep_t microsteps){
-    drv->microsteps = microsteps;
-    HAL_GPIO_WritePin(drv->m0_port, drv->m0_pin, (microsteps & 0x01) ? GPIO_PIN_SET : GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(drv->m1_port, drv->m1_pin, (microsteps & 0x02) ? GPIO_PIN_SET : GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(drv->m2_port, drv->m2_pin, (microsteps & 0x04) ? GPIO_PIN_SET : GPIO_PIN_RESET);
-}
+/* Ritardo per t_SETUP di DIR (DRV8825 >= 650 ns).
+   A 168 MHz ogni iterazione costa ~5-8 cicli: 60 iterazioni = ~2-3 us. */
+#define DIR_SETUP_DELAY() do { for (volatile int _i = 0; _i < 60; _i++) { __NOP(); } } while (0)
 
-void drv_init(drv_t *drv, drv_microstep_t microsteps, GPIO_TypeDef *m0_port, uint16_t m0_pin, GPIO_TypeDef *m1_port, uint16_t m1_pin, GPIO_TypeDef *m2_port, uint16_t m2_pin, GPIO_TypeDef *dir_port, uint16_t dir_pin, GPIO_TypeDef *rst_slp_port, uint16_t rst_slp_pin){
-    drv->m0_port = m0_port;
-    drv->m0_pin = m0_pin;
-    drv->m1_port = m1_port;
-    drv->m1_pin = m1_pin;
-    drv->m2_port = m2_port;
-    drv->m2_pin = m2_pin;
+/* ========================================================================== */
+/*  DRV8825                                                                   */
+/* ========================================================================== */
+void drv_init(drv_t *drv, drv_microstep_t microsteps,
+              GPIO_TypeDef *m0_port, uint16_t m0_pin,
+              GPIO_TypeDef *m1_port, uint16_t m1_pin,
+              GPIO_TypeDef *m2_port, uint16_t m2_pin,
+              GPIO_TypeDef *dir_port, uint16_t dir_pin,
+              GPIO_TypeDef *rst_slp_port, uint16_t rst_slp_pin)
+{
+    drv->m0_port = m0_port;           drv->m0_pin = m0_pin;
+    drv->m1_port = m1_port;           drv->m1_pin = m1_pin;
+    drv->m2_port = m2_port;           drv->m2_pin = m2_pin;
+    drv->dir_port = dir_port;         drv->dir_pin = dir_pin;
+    drv->rst_slp_port = rst_slp_port; drv->rst_slp_pin = rst_slp_pin;
+
     drv_set_microsteps(drv, microsteps);
-    drv->dir_port = dir_port;
-    drv->dir_pin = dir_pin;
-    drv->rst_slp_port = rst_slp_port;
-    drv->rst_slp_pin = rst_slp_pin;
+
+    /* Pin e campo dir allineati fin dall'inizio: scrittura diretta,
+       non tramite drv_set_direction (che salterebbe se il campo coincide) */
+    drv->dir = DIRECTION_CW;
+    HAL_GPIO_WritePin(dir_port, dir_pin, GPIO_PIN_RESET);   /* CW = pin basso */
+
+    HAL_GPIO_WritePin(rst_slp_port, rst_slp_pin, GPIO_PIN_SET); /* esce da reset/sleep */
+    HAL_Delay(2);                                               /* t_WAKE max 1.7 ms   */
 }
 
-void drv_set_direction(drv_t *drv, direction_t dir){
+void drv_set_microsteps(drv_t *drv, drv_microstep_t microsteps)
+{
+    /* Tabella DRV8825 (M2 M1 M0): 000=1, 001=1/2, 010=1/4, 011=1/8, 100=1/16, 101=1/32 */
+    uint8_t code;
+    switch (microsteps) {
+        case DRV8825_FULL_STEP: code = 0u; break;
+        case DRV8825_HALF_STEP: code = 1u; break;
+        case DRV8825_4_STEPS:   code = 2u; break;
+        case DRV8825_8_STEPS:   code = 3u; break;
+        case DRV8825_16_STEPS:  code = 4u; break;
+        case DRV8825_32_STEPS:  code = 5u; break;
+        default:                code = 0u; microsteps = DRV8825_FULL_STEP; break;
+    }
+    drv->microsteps = microsteps;
+
+    HAL_GPIO_WritePin(drv->m0_port, drv->m0_pin, (code & 1u) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(drv->m1_port, drv->m1_pin, (code & 2u) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(drv->m2_port, drv->m2_pin, (code & 4u) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+}
+
+void drv_set_direction(drv_t *drv, direction_t dir)
+{
+    /* Aggiorna sempre pin e campo insieme: il campo resta la copia fedele del pin */
+    HAL_GPIO_WritePin(drv->dir_port, drv->dir_pin,
+                      (dir == DIRECTION_CCW) ? GPIO_PIN_SET : GPIO_PIN_RESET);
     drv->dir = dir;
-    HAL_GPIO_WritePin(drv->dir_port, drv->dir_pin, (dir == DIRECTION_CW) ? GPIO_PIN_SET : GPIO_PIN_RESET);
 }
 
-void motor_init(motor_t *motor, uint16_t steps_per_rev, TIM_HandleTypeDef *htim, uint32_t tim_channel, float fmax,  float fclk,float fs){
+/* ========================================================================== */
+/*  Motore                                                                    */
+/* ========================================================================== */
+void motor_init(motor_t *motor, uint16_t steps_per_rev, TIM_HandleTypeDef *htimP, TIM_HandleTypeDef *htimC,
+                uint32_t tim_channel, float fmax, float fclk, float fs)
+{
+    TIM_TypeDef *tim = htimP->Instance;
+
     motor->steps_per_rev = steps_per_rev;
-    motor->htim_PWM = htim;
-    motor->tim_channel = tim_channel;
-    motor->fmax = fmax;
-    motor->fclk = fclk;
-    motor->fs = fs;
+    motor->htim_PWM      = htimP;
+    motor->htim_COUNTER  = htimC;
+    motor->tim_channel   = tim_channel;
+    motor->fclk          = fclk;
+    motor->fmax          = fmax;
+    motor->fs            = fs;
+
+    /* Preload di ARR e CCR, una volta sola: i nuovi valori diventano attivi
+       solo all'update event, quindi CNT non puo' mai trovarsi oltre ARR
+       (senza: conteggio fino a 2^32 = ~51 s senza passi). */
+    tim->CR1 |= TIM_CR1_ARPE;
+    __HAL_TIM_ENABLE_OCxPRELOAD(htimP, tim_channel);
+
+    /* Uscita ferma e registri in uno stato noto */
+    HAL_TIM_PWM_Stop(htimP, tim_channel);
+    __HAL_TIM_SET_COMPARE(htimP, tim_channel, 0u);
+    tim->EGR = TIM_EGR_UG;
 }
 
-void motor_drv_init(motor_drv_t *motor_drv, drv_t *drv, motor_t *motor){
-    motor_drv->drv = drv;
-    motor_drv->motor = motor;
-    motor_drv->fcurrent = 0;
-    motor_drv->pwm_on = 0;
-    motor_drv->state = MOTOR_DRV_STOPPED;
+void motor_drv_init(motor_drv_t *motor_drv, drv_t *drv, motor_t *motor)
+{
+    motor_drv->drv      = drv;
+    motor_drv->motor    = motor;
+    motor_drv->state    = MOTOR_DRV_STOPPED;
+    motor_drv->fcurrent = 0.0f;
+    motor_drv->pwm_on   = 0u;
 }
 
-void motor_acc(float acc, motor_drv_t *motor_drv){ //acc è in step/s^2
-    uint32_t arr;
-    uint32_t ccr;
-    
+/* Da chiamare a frequenza fs (ISR di TIM3). acc in step/s^2. */
+void motor_acc(float acc, motor_drv_t *motor_drv)
+{
     TIM_HandleTypeDef *htim = motor_drv->motor->htim_PWM;
-    uint32_t psc  = htim->Instance->PSC;
-    uint32_t ch = motor_drv->motor->tim_channel;
-    
+    TIM_TypeDef       *tim  = htim->Instance;
+    uint32_t psc = tim->PSC;
+    uint32_t ch  = motor_drv->motor->tim_channel;
+
     float fmax = motor_drv->motor->fmax;
     float fclk = motor_drv->motor->fclk;
-    float fs = motor_drv->motor->fs;
-    float fmin = FMIN(fclk, psc);
+    float fs   = motor_drv->motor->fs;
 
-    float v = motor_drv->fcurrent + acc/fs;
-    if (v >=  fmax) v = fmax;
-    if (v <= -fmax) v = -fmax;
+    /* 1. Delta time */
+    float dt = (fs > 0.0f) ? (1.0f / fs) : 0.005f;
 
-    // direzione dal segno della VELOCITÀ (non di acc)
-    if      (v > 0) drv_set_direction(motor_drv->drv, DIRECTION_CW);
-    else if (v < 0) drv_set_direction(motor_drv->drv, DIRECTION_CCW);
-    // se v == 0 lascio l'ultima direzione, tanto sto per fermarmi
-    
+    /* 2. Integrazione velocita' */
+    float v = motor_drv->fcurrent + (acc * dt);
+    if (!isfinite(v)) v = 0.0f;
+
+    /* 3. Saturazione */
+    if (v >  fmax) v =  fmax;
+    if (v < -fmax) v = -fmax;
+
+    /* 4. Direzione: scritta solo al cambio */
+    /* 4. Direzione desiderata (scritta al punto 8, a STEP fermo) */
+    direction_t new_dir = motor_drv->drv->dir;
+    if      (v > 0.0f) new_dir = DIRECTION_CW;
+    else if (v < 0.0f) new_dir = DIRECTION_CCW;
+    uint8_t dir_changed = (new_dir != motor_drv->drv->dir);
+
     motor_drv->fcurrent = v;
+    //motor_drv->position += v*dt; //contala con TIMER
     float F = fabsf(v);
 
-    // sotto fmin: fermo l'uscita, niente calcolo ARR (evita /0)
-    if (F <= fmin) {
+    /* 5. Frequenza minima: limite del timer o soglia pratica (periodi <= 200 ms).
+          Con ARRMAX a 32 bit prevale sempre la soglia pratica, quindi
+          ticks resta molto sotto max_ticks e il cast a uint32_t e' sicuro. */
+    const float tick_hz   = fclk / ((float)psc + 1.0f);
+    const float max_ticks = (float)ARRMAX + 1.0f;
+    float fmin = tick_hz / max_ticks;
+    if (fmin < MOTOR_FMIN_PRATICA) fmin = MOTOR_FMIN_PRATICA;
+
+    if (F < fmin) {
         motor_drv->state = MOTOR_DRV_STOPPED;
-        HAL_TIM_PWM_Stop(htim, ch);
-        motor_drv->pwm_on = 0;
+        if (motor_drv->pwm_on) {
+            HAL_TIM_PWM_Stop(htim, ch);
+            motor_drv->pwm_on = 0u;
+        }
         return;
     }
 
-    motor_drv->state = (acc >= 0) ? MOTOR_DRV_ACCEL : MOTOR_DRV_DECEL;
-    arr = (uint32_t)(fclk / ((psc + 1) * F) - 1.0f);
-    if (arr > 0xFFFF) arr = 0xFFFF;
-    ccr = arr / 2;
-    
+    if (v == fmax || v == -fmax) {
+        motor_drv->state = MOTOR_DRV_RUN;                 /* in saturazione */
+    } else {
+        motor_drv->state = (v * acc >= 0.0f) ? MOTOR_DRV_ACCEL : MOTOR_DRV_DECEL;
+    }
+
+    /* 6. Periodo e impulso.
+          Impulso alto a durata fissa; il periodo contiene sempre almeno
+          un alto e un basso di durata 'pulse', quindi CCR vale sempre 'pulse'.
+          Frequenza massima effettiva: tick_hz / (2*pulse) (~199 kHz a 84 MHz). */
+    uint32_t pulse     = (uint32_t)(STEP_PULSE_S * tick_hz) + 1u;
+    uint32_t min_ticks = 2u * pulse;
+
+    uint32_t period = (uint32_t)(tick_hz / F);
+    if (period < min_ticks) period = min_ticks;
+
+    uint32_t arr = period - 1u;
+    uint32_t ccr = period / 2u;  
+
+    /* 7. Registri in preload: attivi al prossimo update event */
     __HAL_TIM_SET_AUTORELOAD(htim, arr);
     __HAL_TIM_SET_COMPARE(htim, ch, ccr);
-    htim->Instance->EGR = TIM_EGR_UG;
 
-    if (motor_drv->pwm_on == 0) {
+    /* 8. Avvio / anticipo del passo */
+    if (dir_changed) {
+        /* Se la direzione è cambiata, arresta temporaneamente il PWM per garantire
+           livello BASSO su STEP e rispettare t_HOLD e t_SETUP del DRV8825 */
+        if (motor_drv->pwm_on) {
+            HAL_TIM_PWM_Stop(htim, ch);
+            motor_drv->pwm_on = 0u;
+        }
+        drv_set_direction(motor_drv->drv, new_dir);
+        DIR_SETUP_DELAY();              /* Garantisce t_SETUP >= 650 ns */
+        tim->EGR = TIM_EGR_UG;          /* Carica subito i nuovi ARR/CCR e azzera CNT */
+        HAL_TIM_PWM_Start(htim, ch);    /* Avvia il PWM in modo pulito */
+        motor_drv->pwm_on = 1u;
+    } else if (motor_drv->pwm_on == 0u) {
+        /* Avvio da fermo senza cambio direzione */
+        tim->EGR = TIM_EGR_UG;
         HAL_TIM_PWM_Start(htim, ch);
+        motor_drv->pwm_on = 1u;
+    } else {
+        /* Motore già in moto nella stessa direzione: anticipo sicuro se accelera */
+        uint32_t cnt = tim->CNT;
+        if (cnt >= arr && cnt >= 2u * pulse) {
+            tim->EGR = TIM_EGR_UG;
+        }
     }
-    motor_drv->pwm_on = 1;
+}
+
+void motor_stop(motor_drv_t *motor_drv) //SOSTITUISCILA AGLI STOP PER MANTENERE COERENZA
+{
+    if (motor_drv->pwm_on) {
+        HAL_TIM_PWM_Stop(motor_drv->motor->htim_PWM, motor_drv->motor->tim_channel);
+        motor_drv->pwm_on = 0u;
+    }
+    motor_drv->fcurrent = 0.0f;
+    motor_drv->state    = MOTOR_DRV_STOPPED;
+    motor_aggiorna_posizione(motor_drv);
+    motor_drv->motor->htim_COUNTER->Instance->CNT = 0;
+    motor_drv->count = 0;
+}
+
+/* ========================================================================== */
+/*  Homing                                                                    */
+/* ========================================================================== */
+void motor_aggiorna_posizione(motor_drv_t *m)
+{
+	TIM_HandleTypeDef *htim = m->motor->htim_COUNTER;
+	TIM_TypeDef       *tim  = htim->Instance;
+    uint32_t cnt = tim->CNT;
+    int32_t  d   = (int32_t)(cnt - m->count);     // nuovi dall'ultima lettura
+    m->count = cnt;
+
+    if (m->drv->dir == DIRECTION_CW) m->position += d;
+    else                             m->position -= d;
+}
+
+void motor_step(uint32_t steps, motor_drv_t *motor_drv)
+{
+	TIM_HandleTypeDef *htim = motor_drv->motor->htim_COUNTER;
+	TIM_TypeDef       *tim  = htim->Instance;
+	const uint32_t partenza = tim->CNT;
+
+    for(int i = 0; i < 1900; i++){
+        motor_acc(32*500.0f, motor_drv);
+        HAL_Delay(1);
+        if ((tim->CNT - partenza) >= steps){
+            break;
+        }
+    }
+    motor_acc(0.0f, motor_drv);
+    while((tim->CNT - partenza) < steps){}
+}
+ 
+void motor_homing(motor_drv_t *motor_drv, volatile bool *LIMITE)
+{
+    /* --- 1° finecorsa: avanti --- */
+    *LIMITE = false;                     /* scarta eventuali eventi vecchi */
+    for (int i = 0; i < 1000 && !*LIMITE; i++) {   /* finecorsa controllato anche in rampa */
+        motor_acc(32*500.0f, motor_drv);
+        HAL_Delay(1);                    /* senza attesa la posizione "corre" */
+    }
+    motor_acc(0.0f, motor_drv);
+    while (!*LIMITE) {}
+    
+    motor_stop(motor_drv);               /* azzera anche pwm_on */
+    motor_drv->position = 0;
+ 
+    /* --- 2° finecorsa: indietro --- */
+    
+    for (int i = 0; i < 1000; i++) {
+        motor_acc(-32*500.0f, motor_drv);
+        HAL_Delay(1);
+    }
+    *LIMITE = false;
+    motor_acc(0.0f, motor_drv);
+    while (!*LIMITE) {}
+ 
+    motor_stop(motor_drv);
+    *LIMITE = false;
+ 
+    /* --- centro corsa --- */
+    int32_t passi = (int32_t)(-motor_drv->position / 2.0f);
+    motor_drv->position = 0.0f;
+    motor_step(passi, motor_drv);
+    motor_stop(motor_drv);
+    motor_drv->position = 0.0f;
+    
+    *LIMITE = false;
 }
