@@ -1,1 +1,2 @@
-../Core/Src/lqr.c:12:6:lqr_controller	64	static
+../Core/Src/lqr.c:36:14:wrap_pi	24	static
+../Core/Src/lqr.c:41:6:lqr_controller	88	static

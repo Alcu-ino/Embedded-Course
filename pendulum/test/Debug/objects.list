@@ -1,5 +1,6 @@
 "./Core/Src/debug.o"
 "./Core/Src/encoder.o"
+"./Core/Src/hil.o"
 "./Core/Src/lqr.o"
 "./Core/Src/main.o"
 "./Core/Src/motor.o"

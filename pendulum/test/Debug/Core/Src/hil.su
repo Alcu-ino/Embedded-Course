@@ -1,0 +1,9 @@
+../Core/Src/hil.c:53:16:crc8	32	static
+../Core/Src/hil.c:65:14:wrap_pi	24	static
+../Core/Src/hil.c:71:6:hil_init	56	static
+../Core/Src/hil.c:127:13:rx_poll	16	static
+../Core/Src/hil.c:162:13:imposta_angolo	24	static
+../Core/Src/hil.c:172:13:hil_aggiorna_encoder	32	static
+../Core/Src/hil.c:234:6:hil_finecorsa	4	static
+../Core/Src/hil.c:244:6:hil_invia_stato	64	static
+../Core/Src/hil.c:287:6:USART2_IRQHandler	16	static

@@ -26,6 +26,7 @@
 #include "debug.h"
 #include "lqr.h"
 #include "swingup.h"
+#include "hil.h"          /* HIL: angolo dal simulatore MuJoCo via USART2 */
 #include <stdbool.h>
 
 /* USER CODE END Includes */
@@ -40,9 +41,9 @@
 #define Fclk 84000000.0f
 #define Fs 1000.0f//1/2pi radq(g/l)
 #define STEPS_PER_REV 200
-#define FMAXmotor 32000.0f //DRV8825 8V [Hz]
-#define ANGOLO_MIN 165
-#define ANGOLO_MAX 195
+#define FMAXmotor 96000.0f //DRV8825 8V [Hz]
+#define ANGOLO_MIN 170
+#define ANGOLO_MAX 190
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -154,7 +155,13 @@ int main(void)
   motor_drv_init(&motor_drv, &drv, &motor);
   //HOMING
   swingup_init(&su);
+#if HIL_ATTIVO
+  /* HIL: niente homing, i finecorsa sono simulati. Il carrello simulato parte
+     al centro corsa (position = 0), come dopo l'homing reale. */
+  hil_init(HIL_BAUD);
+#else
   motor_homing(&motor_drv,&LIMITE);
+#endif
   sistemapronto = 1u;
   //TIM1 PER AZIONE CONTROLLO
   if (HAL_TIM_Base_Start_IT(&htim1) != HAL_OK)
@@ -572,8 +579,37 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
     if (htim->Instance == TIM1)
     {
+#if HIL_ATTIVO
+      /* ---- HIL: angolo dal simulatore al posto di update_Encoder() ---- */
+      hil_esito_t hil = hil_aggiorna_encoder(&encoder);   /* non bloccante */
+
+      if (hil == HIL_RESET) {
+          /* il simulatore (ri)parte: stato del controllo come dopo l'homing */
+          motor_stop(&motor_drv);
+          motor_drv.position = 0;
+          control_on = 0u;
+          guasto     = 0u;
+          LIMITE     = false;
+          swingup_init(&su);
+      }
+      if (hil_finecorsa()) {
+          /* finecorsa simulato: stessa reazione del finecorsa reale */
+          HAL_GPIO_EXTI_Callback(LIMIT_Pin);
+      }
+      if (hil != HIL_OK || guasto) {
+          if (hil == HIL_ATTESA) {
+              /* simulatore assente o muto: carrello fermo */
+              if (motor_drv.pwm_on || motor_drv.fcurrent != 0.0f) motor_stop(&motor_drv);
+              control_on = 0u;
+          }
+          hil_invia_stato(&motor_drv, 0.0f, control_on, guasto, hil);
+          return;
+      }
+#endif
       if (guasto) return;
+#if !HIL_ATTIVO
       update_Encoder(&encoder);
+#endif
       uint8_t in_range = (encoder.angle >= ANGOLO_MIN && encoder.angle <= ANGOLO_MAX);
       motor_aggiorna_posizione(&motor_drv);
 
@@ -595,6 +631,10 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
           swingup_update(&su, &encoder, &motor_drv);
           acc = su.acc;
       }
+#if HIL_ATTIVO
+      /* comando appena calcolato verso il simulatore (ritorno immediato) */
+      hil_invia_stato(&motor_drv, acc, control_on, guasto, HIL_OK);
+#endif
     }
 }
 

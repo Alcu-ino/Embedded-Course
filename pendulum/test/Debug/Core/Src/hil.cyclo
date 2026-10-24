@@ -1,0 +1,9 @@
+../Core/Src/hil.c:53:16:crc8	4
+../Core/Src/hil.c:65:14:wrap_pi	1
+../Core/Src/hil.c:71:6:hil_init	2
+../Core/Src/hil.c:127:13:rx_poll	11
+../Core/Src/hil.c:162:13:imposta_angolo	2
+../Core/Src/hil.c:172:13:hil_aggiorna_encoder	8
+../Core/Src/hil.c:234:6:hil_finecorsa	2
+../Core/Src/hil.c:244:6:hil_invia_stato	7
+../Core/Src/hil.c:287:6:USART2_IRQHandler	5
