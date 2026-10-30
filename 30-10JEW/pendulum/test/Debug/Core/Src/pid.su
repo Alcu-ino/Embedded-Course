@@ -1,0 +1,3 @@
+../Core/Src/pid.c:28:14:wrap_pi	24	static
+../Core/Src/pid.c:33:14:satura	16	static
+../Core/Src/pid.c:40:6:pid_controller	88	static
