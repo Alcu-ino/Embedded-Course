@@ -1,76 +1,84 @@
 /*
  * swingup.h
  *
- *  Swing-up a iniezione di energia (Astrom-Furuta) per pendolo su carrello.
+ *  Swing-up a iniezione di energia per pendolo su carrello, in forma
+ *  "a velocita'": adatta a un carrello con velocita' massima limitata
+ *  (stepper, fmax).
  *  Angolo dal basso (encoder.c): 0 = giu', pi = su.
- *  I calcoli sono in unita' SI (m/s^2); la conversione in impulsi/s^2
- *  avviene solo alla chiamata di motor_acc().
+ *  I calcoli sono in unita' SI; la conversione in impulsi/s^2 avviene solo
+ *  alla chiamata di motor_acc().
  */
 #ifndef SWINGUP_H
 #define SWINGUP_H
 
 #include "encoder.h"
 #include "motor.h"
-#include "lqr.h"          /* M_PER_STEP: un'unica definizione per tutto il progetto */
+#include "lqr.h"          /* M_PER_STEP, LQR_VERSO_ANGOLO */
 
 /* ------------------------------------------------------------------------ */
 /*  Parametri fisici (gli STESSI del modello MATLAB e di lqr.h)              */
 /* ------------------------------------------------------------------------ */
-#define SWINGUP_M           0.10f                 /* [kg] massa del pendolo          */
-#define SWINGUP_L           0.7056f               /* [m]  perno - baricentro         */
+/* Pendolo equivalente: asta uniforme 0.65 m sopra il perno + 0.35 m sotto
+   -> L = (2/3)(0.65^3 + 0.35^3)/(0.65^2 - 0.35^2) = 0.7056 m.
+   Si usa il pendolo a massa concentrata m, L con lo stesso rapporto J/(m*g*l):
+   l'energia NORMALIZZATA E/(m*g*l) e' identica a quella del pendolo vero,
+   quindi il valore di m cambia solo la scala in joule (assorbita da KE). */
+#define SWINGUP_M           0.10f                 /* [kg]                            */
+#define SWINGUP_L           0.7056f               /* [m] lunghezza equivalente       */
 #define SWINGUP_G           9.81f                 /* [m/s^2]                         */
-/* [kg*m^2] inerzia rispetto al PERNO. Massa concentrata: m*L^2.
-   Asta uniforme lunga Lasta: m*Lasta^2/3 (e SWINGUP_L = Lasta/2). */
 #define SWINGUP_J           (SWINGUP_M * SWINGUP_L * SWINGUP_L)
-
-/* m*g*l [J]: energia potenziale con il pendolo orizzontale */
 #define SWINGUP_MGL         (SWINGUP_M * SWINGUP_G * SWINGUP_L)
 
-/* Energia di riferimento [J]. Pendolo fermo in alto = 2*m*g*l, ma la spinta
-   K*(E_rif - E) tende a zero avvicinandosi al bersaglio e, con l'attrito,
-   l'energia si ferma all'80-90%: si mira il 10% piu' in alto (2.2 = 2 * 1.1).
-   L'eccesso non e' un problema: nella finestra di cattura subentra l'LQR. */
-#define SWINGUP_E_RIF       (10.0f * SWINGUP_MGL)
+/* Energia di riferimento [J]. Fermo in alto = 2*m*g*l. Si mira un po' sopra
+   per vincere l'attrito: il pendolo arriva in finestra con ~1-2 rad/s.
+   NON alzarla di molto: con 10*MGL (versione precedente) la spinta era sempre
+   satura e il pendolo arrivava in alto troppo veloce per l'LQR. */
+#define SWINGUP_E_RIF       (2.2f * SWINGUP_MGL)
 
 /* ------------------------------------------------------------------------ */
 /*  Taratura                                                                */
 /* ------------------------------------------------------------------------ */
-/* Guadagno [(m/s^2)/J]: moltiplica (E_rif - E) in joule.
-   Da fermo E = 0: acc = K * E_rif = 4 * 1.52 J ~ 6 m/s^2 -> saturata a ACC_MAX.
-   Valori piu' bassi (1.5) non bastano a vincere l'attrito vicino all'alto. */
-#define SWINGUP_K           100.0f
+/* Velocita' di riferimento del carrello:
+       v_rif = SEGNO * sat(KE * (E_rif - E) * sin(theta), V_SU) - KX * p
+   Con v proporzionale a sin(theta) l'accelerazione e' proporzionale a
+   w*cos(theta): la potenza ceduta al pendolo e' sempre >= 0 e la velocita'
+   resta limitata, invece di saturare in un verso come con la legge in
+   accelerazione. */
+#define SWINGUP_KE          20.0f    /* [(m/s)/J]                                */
+
+/* Frazione di fmax usata dallo swing-up (margine per il richiamo KX).
+   V_SU = SWINGUP_V_FRAZ * fmax * M_PER_STEP, letta da motor_drv a runtime. */
+#define SWINGUP_V_FRAZ      0.9f
+
+/* Richiamo del carrello verso il centro [1/s]: velocita' in m/s per metro
+   di scostamento (0 = centro dopo l'homing). */
+#define SWINGUP_KX          1.0f
+
+/* Inseguimento della velocita' di riferimento: acc = (v_rif - v) / TAU [s] */
+#define SWINGUP_TAU         0.02f
 
 /* Accelerazione massima [m/s^2] (sotto il limite a cui lo stepper perde passi) */
 #define SWINGUP_ACC_MAX     3.0f
 
-/* Verso della spinta. NON e' un parametro libero: dipende dal verso
-   dell'encoder gia' fissato per l'LQR.
-   Bilancio di energia: dE/dt = m*l*acc*w*cos(theta) * LQR_VERSO_ANGOLO
-   (con acc = accelerazione del carrello verso +position). Perche' l'energia
-   cresca, la spinta deve avere segno -LQR_VERSO_ANGOLO * sign(w*cos(theta)):
-   la formula al punto 5 di swingup.c ha gia' il '-', quindi SEGNO = -VERSO.
-   Basta tarare LQR_VERSO_ANGOLO con la prova a mano e questo segue da solo. */
-#define SWINGUP_SEGNO       (-LQR_VERSO_ANGOLO)
+/* Verso della spinta: segue il verso dell'encoder fissato per l'LQR.
+   Verificato in simulazione MuJoCo con LQR_VERSO_ANGOLO = +1.
+   Se in prova l'ampiezza CALA invece di crescere, il verso dell'encoder
+   o del carrello e' invertito: sistemare LQR_VERSO_ANGOLO, non questo. */
+#define SWINGUP_SEGNO       (LQR_VERSO_ANGOLO)
 
-/* Filtro passa-basso su w: w_f += ALFA * (w - w_f).
-   0.1 a 1 kHz = costante di tempo ~10 ms. Serve perche' encoder->w
-   salta tra 0 e +/-2.6 rad/s e il segno di w*cos(theta) commuterebbe sul rumore. */
+/* Spinta iniziale: da fermo sin(theta) = 0 e la legge non farebbe nulla.
+   Per KICK_S secondi dopo swingup_init() si aggiunge +V_SU. */
+#define SWINGUP_KICK_S      0.15f
+
+/* Filtro passa-basso su w (solo per il calcolo dell'energia):
+   w_f += ALFA * (w - w_f). 0.1 a 1 kHz = costante di tempo ~10 ms. */
 #define SWINGUP_ALFA        0.1f
 
-/* Zona morta su w*cos(theta) [rad/s] (applicata alla w filtrata) */
-#define SWINGUP_EPS         0.4f
-
-/* Finestra di cattura attorno alla verticale alta: 180 +/- 5 gradi
-   (deve coincidere con ANGOLO_MIN / ANGOLO_MAX del main). */
-#define SWINGUP_CATTURA_DEG 20.0f
-
-/* Richiamo del carrello verso il centro (0 = centro dopo l'homing).
-   KX [1/s^2] su posizione in m, KV [1/s] su velocita' in m/s.
-   Senza richiamo in simulazione il carrello deriva di metri.
-   KV frena la deriva di velocita' (il carrello resta "centrato" in velocita'),
-   KX lo riporta verso il centro. Con 2 e 2: escursione circa +/-35 cm. */
-#define SWINGUP_KX          2.0f
-#define SWINGUP_KV          0.0f
+/* Finestra di cattura attorno alla verticale alta: 180 +/- 15 gradi.
+   DEVE coincidere con la finestra in cui il main chiama l'LQR (165-195):
+   se e' piu' larga, tra le due finestre nessuno chiama motor_acc() e il
+   carrello prosegue alla velocita' dell'ultimo comando. */
+#define SWINGUP_CATTURA_DEG 15.0f
 
 /* ------------------------------------------------------------------------ */
 /*  Tipi                                                                    */
@@ -82,12 +90,13 @@ typedef enum {
 } swingup_stato_t;
 
 typedef struct {
-    float segno;    /* ultimo segno valido di w*cos(theta): +1 / -1   */
-    float w_f;      /* velocita' angolare filtrata [rad/s]            */
-    float energia;  /* energia attuale [J] (debug)                    */
-    float errore;   /* scostamento dalla verticale alta [rad]         */
-    float acc_ms2;  /* ultima accelerazione comandata [m/s^2] (debug) */
-    float acc;      /* ultima accelerazione comandata [impulsi/s^2]   */
+    float    w_f;      /* velocita' angolare filtrata [rad/s]            */
+    float    energia;  /* energia attuale [J] (debug)                    */
+    float    errore;   /* scostamento dalla verticale alta [rad]         */
+    float    v_rif;    /* velocita' di riferimento [m/s] (debug)         */
+    float    acc_ms2;  /* ultima accelerazione comandata [m/s^2] (debug) */
+    float    acc;      /* ultima accelerazione comandata [impulsi/s^2]   */
+    float    kick;     /* tempo rimanente di spinta iniziale [s]        */
 } swingup_t;
 
 /* ------------------------------------------------------------------------ */

@@ -179,24 +179,22 @@ void motor_acc(float acc, motor_drv_t *motor_drv)
 
     /* 8. Avvio / anticipo del passo */
     if (dir_changed) {
-        /* Se la direzione è cambiata, arresta temporaneamente il PWM per garantire
-           livello BASSO su STEP e rispettare t_HOLD e t_SETUP del DRV8825 */
+    /* STEP basso prima di cambiare DIR (t_HOLD / t_SETUP DRV8825) */
         if (motor_drv->pwm_on) {
             HAL_TIM_PWM_Stop(htim, ch);
             motor_drv->pwm_on = 0u;
         }
+        motor_aggiorna_posizione(motor_drv);   /* passi già emessi contati col verso VECCHIO */
         drv_set_direction(motor_drv->drv, new_dir);
-        DIR_SETUP_DELAY();              /* Garantisce t_SETUP >= 650 ns */
-        tim->EGR = TIM_EGR_UG;          /* Carica subito i nuovi ARR/CCR e azzera CNT */
-        HAL_TIM_PWM_Start(htim, ch);    /* Avvia il PWM in modo pulito */
+        DIR_SETUP_DELAY();                     /* t_SETUP >= 650 ns */
+        tim->EGR = TIM_EGR_UG;                 /* carica ARR/CCR nuovi e azzera CNT */
+        HAL_TIM_PWM_Start(htim, ch);
         motor_drv->pwm_on = 1u;
     } else if (motor_drv->pwm_on == 0u) {
-        /* Avvio da fermo senza cambio direzione */
         tim->EGR = TIM_EGR_UG;
         HAL_TIM_PWM_Start(htim, ch);
         motor_drv->pwm_on = 1u;
     } else {
-        /* Motore già in moto nella stessa direzione: anticipo sicuro se accelera */
         uint32_t cnt = tim->CNT;
         if (cnt >= arr && cnt >= 2u * pulse) {
             tim->EGR = TIM_EGR_UG;
