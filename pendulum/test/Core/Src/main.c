@@ -624,8 +624,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
       if (control_on) {
           /* stato controllore */
-    	  //lqr_controller(&encoder, &motor_drv, &acc);
-          pid_controller(&encoder, &motor_drv, &acc);
+    	    lqr_controller(&encoder, &motor_drv, &acc);
+          //pid_controller(&encoder, &motor_drv, &acc);
           motor_acc(acc, &motor_drv);
       }
       else {
