@@ -28,6 +28,7 @@
 #include "swingup.h"
 #include "hil.h"          /* HIL: angolo dal simulatore MuJoCo via USART2 */
 #include <stdbool.h>
+#include "pid.h"
 
 /* USER CODE END Includes */
 
@@ -622,8 +623,9 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
       }
 
       if (control_on) {
-          /* stato LQR */
-          lqr_controller(&encoder, &motor_drv, &acc);
+          /* stato controllore */
+    	  //lqr_controller(&encoder, &motor_drv, &acc);
+          pid_controller(&encoder, &motor_drv, &acc);
           motor_acc(acc, &motor_drv);
       }
       else {
