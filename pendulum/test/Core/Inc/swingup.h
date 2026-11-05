@@ -72,13 +72,13 @@
 
 /* Filtro passa-basso su w (solo per il calcolo dell'energia):
    w_f += ALFA * (w - w_f). 0.1 a 1 kHz = costante di tempo ~10 ms. */
-#define SWINGUP_ALFA        0.1f
+#define SWINGUP_ALFA        0.3f
 
 /* Finestra di cattura attorno alla verticale alta: 180 +/- 15 gradi.
    DEVE coincidere con la finestra in cui il main chiama l'LQR (165-195):
    se e' piu' larga, tra le due finestre nessuno chiama motor_acc() e il
    carrello prosegue alla velocita' dell'ultimo comando. */
-#define SWINGUP_CATTURA_DEG 15.0f
+#define SWINGUP_CATTURA_DEG 10.0f
 
 /* ------------------------------------------------------------------------ */
 /*  Tipi                                                                    */

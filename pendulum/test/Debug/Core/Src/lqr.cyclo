@@ -1,2 +1,2 @@
 ../Core/Src/lqr.c:36:14:wrap_pi	1
-../Core/Src/lqr.c:41:6:lqr_controller	6
+../Core/Src/lqr.c:41:6:lqr_controller	7

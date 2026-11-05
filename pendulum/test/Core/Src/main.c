@@ -43,8 +43,8 @@
 #define Fs 100.0f//1/2pi radq(g/l)
 #define STEPS_PER_REV 200
 #define FMAXmotor 32000.0f //DRV8825 8V [Hz]
-#define ANGOLO_MIN 165
-#define ANGOLO_MAX 195
+#define ANGOLO_MIN 170
+#define ANGOLO_MAX 190
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -133,7 +133,7 @@ int main(void)
   //HAL_NVIC_DisableIRQ(DMA1_Stream6_IRQn);
 
   //START ENCODER E TIM4 PER CAMPIONAMENTO
-  init_Encoder(&encoder, CPR, RES, 1.0f/Fs);
+  init_Encoder(&encoder, CPR, RES, (1.0f/Fs));
   __HAL_TIM_ENABLE_DMA(&htim4, TIM_DMA_UPDATE);
   if (HAL_DMA_Start(&hdma_tim4_up, (uint32_t)&TIM3->CNT, (uint32_t)encoder.timcount_array, DMA_BUFFER_SIZE) != HAL_OK)
   {

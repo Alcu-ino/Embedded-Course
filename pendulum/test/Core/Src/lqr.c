@@ -91,8 +91,14 @@ void lqr_controller(Encoder_HandleTypeDef *encoder, motor_drv_t *motor_drv, floa
     /* ---------------------------------------------------------------------- */
     const float L1 = 2.0f * OSS_ZETA * OSS_W0 * ts;
     const float L2 = (OSS_W0 * OSS_W0 + LQR_A21) * ts;
-    const float e  = wrap_pi(phi_mis - phi_p);
+    /* quanto angolare dell'encoder [rad] */
+    const float q_enc = 2.0f * (float)M_PI / (float)(encoder->cpr * encoder->res);
+    const float dz    = LQR_DZ_CONTEGGI * q_enc;
 
+    float e = wrap_pi(phi_mis - phi_p);
+    if (fabsf(e) <= dz) e = 0.0f;              /* dentro il quanto: si fida del modello  */
+    else                e -= copysignf(dz, e); /* fuori: corregge solo l'eccedenza,      */
+                                               /* senza gradino all'uscita dalla zona    */
     phi_h = phi_p + L1 * e;
     w_h   = w_p   + L2 * e;
 
