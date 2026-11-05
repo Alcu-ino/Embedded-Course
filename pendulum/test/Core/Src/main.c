@@ -39,12 +39,12 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define Fclk 84000000.0f
-#define Fs 1000.0f//1/2pi radq(g/l)
+#define Fclk 42000000.0f
+#define Fs 100.0f//1/2pi radq(g/l)
 #define STEPS_PER_REV 200
-#define FMAXmotor 96000.0f //DRV8825 8V [Hz]
-#define ANGOLO_MIN 170
-#define ANGOLO_MAX 190
+#define FMAXmotor 32000.0f //DRV8825 8V [Hz]
+#define ANGOLO_MIN 165
+#define ANGOLO_MAX 195
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -249,9 +249,9 @@ static void MX_TIM1_Init(void)
 
   /* USER CODE END TIM1_Init 1 */
   htim1.Instance = TIM1;
-  htim1.Init.Prescaler = 83;
+  htim1.Init.Prescaler = 9;
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim1.Init.Period = 999;
+  htim1.Init.Period = 41999;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim1.Init.RepetitionCounter = 0;
   htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
@@ -410,9 +410,9 @@ static void MX_TIM4_Init(void)
 
   /* USER CODE END TIM4_Init 1 */
   htim4.Instance = TIM4;
-  htim4.Init.Prescaler = 0;
+  htim4.Init.Prescaler = 9;
   htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim4.Init.Period = 839;
+  htim4.Init.Period = 20999;
   htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim4) != HAL_OK)
