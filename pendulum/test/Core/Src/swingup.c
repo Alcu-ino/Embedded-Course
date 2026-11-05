@@ -1,27 +1,21 @@
 /*
  * swingup.c
  *
- *  Swing-up a iniezione di energia (Astrom-Furuta):
+ *  Swing-up a iniezione di energia in forma "a velocita'":
  *
- *      acc = sat( -K * (E_rif - E) * sign(w * cos(theta)), +/- acc_max )
+ *      E     = 0.5 * J * w^2 + m*g*l * (1 - cos(theta))        [J]
+ *      v_rif = SEGNO * sat(KE * (E_rif - E) * sin(theta), V_SU) - KX * p
+ *      acc   = sat((v_rif - v) / TAU, +/- ACC_MAX)
  *
- *  Energia in joule (non normalizzata), angolo misurato dal basso:
- *
- *      E = 0.5 * J * w^2 + m*g*l * (1 - cos(theta))
- *
- *      E = 0        pendolo fermo in basso
- *      E = 2*m*g*l  pendolo fermo in alto  -> E_rif
- *
- *  K moltiplica direttamente (E_rif - E) in joule: la scala 1/(m*g*l)
- *  e' inclusa in K.
- *
- *  Uso (ISR di TIM3, a frequenza fs):
- *
- *      update_Encoder(&encoder);
- *      if (swingup_update(&su, &encoder, &motor_drv) == SWINGUP_CATTURA) {
- *          float acc_lqr = ...;              // LQR sull'errore su.errore
- *          motor_acc(acc_lqr, &motor_drv);
- *      }
+ *  Perche' in velocita' e non in accelerazione (Astrom-Furuta classica):
+ *  lo stepper ha una velocita' massima (fmax). Con la legge classica la spinta
+ *  satura in un verso, il carrello arriva a fmax in poche decine di ms e poi
+ *  viaggia a velocita' costante, che non cede energia al pendolo.
+ *  Qui la velocita' segue sin(theta): l'accelerazione e' proporzionale a
+ *  w*cos(theta), quindi la potenza ceduta al pendolo e' sempre positiva
+ *  finche' E < E_rif, e il carrello resta entro +/- V_SU.
+ *  L'energia ceduta per mezza oscillazione e' al massimo 2*m*l*V_SU*w_max:
+ *  piu' alta e' fmax, piu' rapido e' lo swing-up.
  */
 #include "swingup.h"
 #include <math.h>
@@ -34,56 +28,94 @@
 
 void swingup_init(swingup_t *su)
 {
-    su->segno   = 1.0f;   /* segno iniziale: da' la prima spinta partendo da fermo */
+    su->w_f     = 0.0f;
     su->energia = 0.0f;
     su->errore  = (float)M_PI;
+    su->v_rif   = 0.0f;
+    su->acc_ms2 = 0.0f;
     su->acc     = 0.0f;
+    su->kick    = SWINGUP_KICK_S;
+}
+
+static float sat(float x, float lim)
+{
+    if (x >  lim) return  lim;
+    if (x < -lim) return -lim;
+    return x;
 }
 
 swingup_stato_t swingup_update(swingup_t *su,
                                const Encoder_HandleTypeDef *encoder,
                                motor_drv_t *motor_drv)
 {
-    float th = encoder->rad_angle;   /* [rad], 0 = basso, pi = alto */
-    float w  = encoder->w;           /* [rad/s]                     */
-    float c  = cosf(th);
+    const float ts = encoder->ts;                      /* [s] periodo di controllo */
 
-    /* 1. Energia del pendolo [J] */
-    float E = 0.5f * SWINGUP_J * w * w + SWINGUP_MGL * (1.0f - c);
+    /* ---------------------------------------------------------------------- */
+    /* 1. Misure. w filtrata: la derivata dell'encoder a 1 kHz ha quanti di     */
+    /*    2.6 rad/s, troppo grossi per l'energia cinetica.                     */
+    /* ---------------------------------------------------------------------- */
+    const float th = encoder->rad_angle;               /* [rad] 0 = basso, pi = alto */
+    su->w_f += SWINGUP_ALFA * (encoder->w - su->w_f);
+    const float w = su->w_f;
+
+    /* ---------------------------------------------------------------------- */
+    /* 2. Energia del pendolo [J]: cinetica + potenziale (zero in basso).       */
+    /* ---------------------------------------------------------------------- */
+    const float E = 0.5f * SWINGUP_J * w * w + SWINGUP_MGL * (1.0f - cosf(th));
     su->energia = E;
 
-    /* 2. Scostamento dalla verticale alta, riportato in (-pi, pi]:
-          vale da entrambi i lati (165-195 gradi) e dopo piu' giri */
+    /* ---------------------------------------------------------------------- */
+    /* 3. Scostamento dalla verticale alta in (-pi, pi].                        */
+    /*    Nella finestra di cattura lo swing-up si ritira: comanda l'LQR.      */
+    /* ---------------------------------------------------------------------- */
     float e = th - (float)M_PI;
     e = atan2f(sinf(e), cosf(e));
     su->errore = e;
 
     if (fabsf(e) < SWINGUP_CATTURA_RAD) {
-        su->acc = 0.0f;
-        return SWINGUP_CATTURA;      /* motor_acc() la chiama l'LQR */
+        su->v_rif   = 0.0f;
+        su->acc_ms2 = 0.0f;
+        su->acc     = 0.0f;
+        return SWINGUP_CATTURA;                        /* motor_acc() la chiama l'LQR */
     }
 
-    /* 3. Segno di w*cos(theta) con zona morta: dentro la zona morta resta
-          l'ultimo segno valido. Evita le commutazioni sul rumore e fa
-          partire il pendolo da fermo (w = 0) senza un impulso dedicato. */
-    float s = w * c;
-    if      (s >  SWINGUP_EPS) su->segno =  1.0f;
-    else if (s < -SWINGUP_EPS) su->segno = -1.0f;
+    /* ---------------------------------------------------------------------- */
+    /* 4. Velocita' massima dello swing-up [m/s], dalla fmax del motore.        */
+    /* ---------------------------------------------------------------------- */
+    const float v_su = SWINGUP_V_FRAZ * motor_drv->motor->fmax * M_PER_STEP;
 
-    /* 4. Legge di Astrom-Furuta */
-    float acc = -SWINGUP_SEGNO * SWINGUP_K * (SWINGUP_E_RIF - E) * su->segno;
+    /* ---------------------------------------------------------------------- */
+    /* 5. Velocita' di riferimento [m/s].                                       */
+    /*    Il segno di sin(theta) mette la velocita' in fase con l'angolo: il    */
+    /*    carrello inverte quando il pendolo passa dal basso, dove w e' massima,*/
+    /*    e li' l'accelerazione cede il massimo di energia.                    */
+    /*    Lontano dal bersaglio KE*(E_rif-E) e' grande e la velocita' satura a */
+    /*    +/- V_SU (onda quadra); vicino a E_rif si riduce con continuita'.    */
+    /* ---------------------------------------------------------------------- */
+    float v_rif = SWINGUP_SEGNO * sat(SWINGUP_KE * (SWINGUP_E_RIF - E) * sinf(th), v_su);
 
-    /* 5. Richiamo del carrello verso il centro (spento se KX = KV = 0).
-          position in step (0 = centro dopo l'homing), fcurrent in step/s. */
-    acc -= SWINGUP_KX * motor_drv->position + SWINGUP_KV * motor_drv->fcurrent;
+    /* Spinta iniziale: da fermo sin(theta) = 0 */
+    if (su->kick > 0.0f) {
+        v_rif   += v_su;
+        su->kick -= ts;
+    }
 
-    /* 6. Saturazione */
-    if (acc >  SWINGUP_ACC_MAX) acc =  SWINGUP_ACC_MAX;
-    if (acc < -SWINGUP_ACC_MAX) acc = -SWINGUP_ACC_MAX;
-    su->acc = acc;
+    /* Richiamo verso il centro (position in impulsi -> m) */
+    v_rif -= SWINGUP_KX * motor_drv->position * M_PER_STEP;
+    su->v_rif = v_rif;
 
-    /* 7. Comando al motore [step/s^2] */
-    motor_acc(32*acc, motor_drv);
+    /* ---------------------------------------------------------------------- */
+    /* 6. Inseguimento della velocita' [m/s^2], saturato.                       */
+    /* ---------------------------------------------------------------------- */
+    const float v = motor_drv->fcurrent * M_PER_STEP;  /* [m/s] */
+    const float acc = sat((v_rif - v) / SWINGUP_TAU, SWINGUP_ACC_MAX);
+    su->acc_ms2 = acc;
+
+    /* ---------------------------------------------------------------------- */
+    /* 7. Comando al motore: m/s^2 -> impulsi/s^2                               */
+    /* ---------------------------------------------------------------------- */
+    su->acc = acc / M_PER_STEP;
+    motor_acc(su->acc, motor_drv);
 
     return SWINGUP_IN_CORSO;
 }
