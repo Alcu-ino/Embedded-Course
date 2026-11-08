@@ -72,7 +72,7 @@
 
 /* Filtro passa-basso su w (solo per il calcolo dell'energia):
    w_f += ALFA * (w - w_f). 0.1 a 1 kHz = costante di tempo ~10 ms. */
-#define SWINGUP_ALFA        0.3f
+#define SWINGUP_ALFA        0.6f
 
 /* Finestra di cattura attorno alla verticale alta: 180 +/- 15 gradi.
    DEVE coincidere con la finestra in cui il main chiama l'LQR (165-195):

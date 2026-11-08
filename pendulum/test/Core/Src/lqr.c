@@ -48,7 +48,7 @@ void lqr_controller(Encoder_HandleTypeDef *encoder, motor_drv_t *motor_drv, floa
     /*    wrap_pi lo porta in (-pi, pi], LQR_VERSO_ANGOLO lo allinea al verso  */
     /*    del carrello usato nel modello.                                      */
     /* ---------------------------------------------------------------------- */
-    const float phi_mis = LQR_VERSO_ANGOLO * wrap_pi(encoder->rad_angle - (float)M_PI);
+    const float phi_mis = (LQR_VERSO_ANGOLO * wrap_pi(encoder->rad_angle - (float)M_PI));
 
     /* ---------------------------------------------------------------------- */
     /* 2. (Ri)aggancio: se l'LQR non e' stato chiamato negli ultimi ms, il      */

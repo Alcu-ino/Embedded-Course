@@ -32,10 +32,10 @@
 /* ------------------------------------------------------------------------ */
 /*  Guadagni (da MATLAB: lqr sul modello con u = accelerazione carrello)    */
 /* ------------------------------------------------------------------------ */
-#define LQR_K1   (-7.4147f)    /* su p   [m]     */
-#define LQR_K2   (-28.3785f)    /* su v   [m/s]   */
-#define LQR_K3   (-178.8698f)   /* su phi [rad]   */
-#define LQR_K4   (-52.6476f)    /* su w   [rad/s] */
+#define LQR_K1   (-22.3607f)    /* su p   [m]     */
+#define LQR_K2   (-82.6947f)    /* su v   [m/s]   */
+#define LQR_K3   (-413.0806f)   /* su phi [rad]   */
+#define LQR_K4   (-105.5085f)    /* su w   [rad/s] */
 #define LQR_DZ_CONTEGGI    0.5f
 /* ------------------------------------------------------------------------ */
 /*  Taratura                                                                */
@@ -70,7 +70,7 @@
 
 /* Se tra due chiamate passano piu' di questi ms, l'LQR era spento:
    lo stimatore riparte dalla misura (ingresso nella finestra 165-195). */
-#define LQR_RIAGGANCIO_MS  13u
+#define LQR_RIAGGANCIO_MS  7u
 
 /* Variabili di debug (leggibili nel Live Expressions di CubeIDE) */
 extern volatile float lqr_phi_stima;   /* [rad]   */

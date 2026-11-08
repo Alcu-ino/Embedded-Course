@@ -38,7 +38,7 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define Fclk 42000000.0f
-#define Fs 100.0f//1/2pi radq(g/l)
+#define Fs 250.0f//1/2pi radq(g/l)
 #define STEPS_PER_REV 200
 #define FMAXmotor 32000.0f //DRV8825 8V [Hz]
 #define ANGOLO_MIN 170
@@ -153,12 +153,19 @@ int main(void)
   drv_init(&drv, 32, M0_GPIO_Port, M0_Pin, M1_GPIO_Port, M1_Pin, M2_GPIO_Port, M2_Pin, DIR_GPIO_Port, DIR_Pin, RST_SLP_GPIO_Port, RST_SLP_Pin);
   motor_init(&motor, STEPS_PER_REV, &htim2, &htim5, TIM_CHANNEL_1, FMAXmotor, Fclk, Fs);
   motor_drv_init(&motor_drv, &drv, &motor);
-  //HOMING
-  //swingup_init(&su);
-  //while(!pronto){}
+  
+  //------------HOMING------------
+  //COMMENTI PER FAR PARTIRE DIRETTAMENTE IL CONTROLLO LQR SENZA HOMING
+  swingup_init(&su);
+  
+  //while (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin) == GPIO_PIN_SET) {}; // attende la pressione
+  
+  //pronto = 1u;  //LASCIA DECOMMENTATO ALTRIMENTI NON PARTE
+  
   //motor_homing(&motor_drv,&LIMITE);
+  
   sistemapronto = 1u;
-  //TIM1 PER AZIONE CONTROLLO
+  //------------ TIM1 PER AZIONE CONTROLLO ------------
   if (HAL_TIM_Base_Start_IT(&htim1) != HAL_OK)
   {
     Error_Handler();
@@ -243,9 +250,9 @@ static void MX_TIM1_Init(void)
 
   /* USER CODE END TIM1_Init 1 */
   htim1.Instance = TIM1;
-  htim1.Init.Prescaler = 9;
+  htim1.Init.Prescaler = 83;
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim1.Init.Period = 41999;
+  htim1.Init.Period = 16799;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim1.Init.RepetitionCounter = 0;
   htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
@@ -406,7 +413,7 @@ static void MX_TIM4_Init(void)
   htim4.Instance = TIM4;
   htim4.Init.Prescaler = 9;
   htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim4.Init.Period = 839;
+  htim4.Init.Period = 8399;
   htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim4) != HAL_OK)
@@ -521,8 +528,8 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin : B1_Pin */
   GPIO_InitStruct.Pin = B1_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_EVT_RISING;
-  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : USART_TX_Pin USART_RX_Pin */
@@ -573,7 +580,8 @@ static void MX_GPIO_Init(void)
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
     if (htim->Instance == TIM1)
-    {
+    { 
+      //if (!pronto) return;
       if (guasto) return;
       update_Encoder(&encoder);
       uint8_t in_range = (encoder.angle >= ANGOLO_MIN && encoder.angle <= ANGOLO_MAX);
@@ -610,9 +618,6 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
       control_on = 0u;
       guasto = 1u;
     }
-  }
-  if(GPIO_Pin == B1_Pin){
-    pronto = 1u;
   }
 }
 /* USER CODE END 4 */
