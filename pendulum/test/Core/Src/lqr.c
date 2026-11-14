@@ -4,13 +4,22 @@
  *  Created on: 4 oct 2026
  *      Author: vito
  *
- *  LQR con stimatore di [phi, w] sul modello linearizzato.
+ *  LQR con azione integrale e stimatore di [phi, w] sul modello linearizzato.
  *
  *  Perche' lo stimatore: l'encoder ha 2400 impulsi/giro (2.6 mrad). Derivando
- *  su 1 ms, encoder->w vale 0 oppure +/-2.6 rad/s e niente in mezzo: con
- *  K4 ~ 70 ogni impulso darebbe un colpo di ~180 m/s^2 al carrello.
+ *  su 4 ms, encoder->w vale 0 oppure +/-0.65 rad/s e niente in mezzo: con
+ *  K4 ~ 32 ogni impulso darebbe un colpo di ~21 m/s^2 al carrello.
  *  Lo stimatore predice angolo e velocita' con il modello e li corregge con
  *  l'angolo misurato: la velocita' stimata e' continua e quasi senza ritardo.
+ *
+ *  Perche' l'integratore: z = integrale della posizione del carrello
+ *  (riferimento = 0, centro corsa). Un offset fisso dell'encoder farebbe
+ *  fermare il carrello fuori centro (K3/K1 = 6.7 m/rad, cioe' ~1.8 cm per
+ *  conteggio); z cresce finche' il carrello non torna al centro e a regime
+ *  vale K3*offset + K5*z = 0. Quindi z misura anche l'offset dell'encoder:
+ *  vedi lqr_offset_conteggi.
+ *  I guadagni K1..K5 vengono da lqr() sul sistema aumentato [A 0; C 0],
+ *  C = [1 0 0 0], convertiti in accelerazione.
  */
 #include "lqr.h"
 
@@ -18,26 +27,36 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-volatile float lqr_phi_stima = 0.0f;
-volatile float lqr_w_stima   = 0.0f;
-volatile float lqr_u         = 0.0f;
+volatile float lqr_phi_stima       = 0.0f;
+volatile float lqr_w_stima         = 0.0f;
+volatile float lqr_u               = 0.0f;
+volatile float lqr_z               = 0.0f;
+volatile float lqr_offset_conteggi = 0.0f;
 
-/* Guadagni in un vettore per il prodotto K*x */
-static const float K[4] = { LQR_K1, LQR_K2, LQR_K3, LQR_K4 };
+/* Guadagni in un vettore per il prodotto K*x (K5 = guadagno integrale) */
+static const float K[5] = { LQR_K1, LQR_K2, LQR_K3, LQR_K4, LQR_K5 };
 
 /* Stato interno dello stimatore (persiste tra una chiamata e l'altra) */
 static float    phi_h  = 0.0f;   /* angolo stimato [rad]                       */
 static float    w_h    = 0.0f;   /* velocita' angolare stimata [rad/s]         */
 static float    v_prec = 0.0f;   /* fcurrent alla chiamata precedente [imp/s]  */
-static uint32_t t_prec = 0u;     /* HAL_GetTick() alla chiamata precedente     */
-static uint8_t  avviato = 0u;    /* 0 finche' non c'e' stata una prima chiamata */
+static uint8_t  avviato = 0u;    /* 0 = alla prossima chiamata si (ri)aggancia */
+
+/* Stato dell'integratore (persiste tra una chiamata e l'altra) */
+static float    z_int  = 0.0f;   /* integrale della posizione carrello [m*s]   */
 
 /* Riporta un angolo in (-pi, pi] */
 static float wrap_pi(float a)
 {
     return atan2f(sinf(a), cosf(a));
 }
-void lqr_reset(void) { avviato = 0u; };
+
+/* Da chiamare quando l'LQR viene abbandonato (pendolo fuori finestra):
+   alla prossima chiamata stimatore e integratore ripartono da capo. */
+void lqr_reset(void)
+{
+    avviato = 0u;
+}
 
 void lqr_controller(Encoder_HandleTypeDef *encoder, motor_drv_t *motor_drv, float *acc)
 {
@@ -52,19 +71,20 @@ void lqr_controller(Encoder_HandleTypeDef *encoder, motor_drv_t *motor_drv, floa
     const float phi_mis = (LQR_VERSO_ANGOLO * wrap_pi(encoder->rad_angle - (float)M_PI));
 
     /* ---------------------------------------------------------------------- */
-    /* 2. (Ri)aggancio: se l'LQR non e' stato chiamato negli ultimi ms, il      */
-    /*    pendolo e' appena entrato nella finestra 165-195 gradi.              */
+    /* 2. (Ri)aggancio: prima chiamata dopo lqr_reset(), cioe' il pendolo e'   */
+    /*    appena entrato nella finestra 170-190 gradi.                         */
     /*    Lo stimatore parte dalla misura; per la velocita' si usa la derivata */
     /*    grezza dell'encoder (rumorosa, ma lo stimatore la corregge in ~0.1 s).*/
+    /*    L'integratore riparte da zero: il valore vecchio non ha piu' senso.  */
     /* ---------------------------------------------------------------------- */
-
     if (!avviato) {
         phi_h   = phi_mis;
         w_h     = LQR_VERSO_ANGOLO * encoder->w;
         v_prec  = motor_drv->fcurrent;
+        z_int   = 0.0f;
         avviato = 1u;
     }
-    
+
     /* ---------------------------------------------------------------------- */
     /* 3. Accelerazione REALMENTE applicata al carrello nell'ultimo periodo    */
     /*    [m/s^2]. Si ricava dalla variazione di velocita' prodotta da         */
@@ -103,39 +123,59 @@ void lqr_controller(Encoder_HandleTypeDef *encoder, motor_drv_t *motor_drv, floa
     w_h   = w_p   + L2 * e;
 
     /* ---------------------------------------------------------------------- */
-    /* 6. Stato in unita' SI.                                                  */
+    /* 6. Stato aumentato in unita' SI (tutti i riferimenti sono nulli).       */
     /*    position e fcurrent sono in impulsi (contati da TIM5 / comandati):   */
     /*    si convertono in metri con M_PER_STEP.                               */
     /* ---------------------------------------------------------------------- */
-    const float x[4] = {
-        motor_drv->position * M_PER_STEP,   /* p   [m]     */
-        motor_drv->fcurrent * M_PER_STEP,   /* v   [m/s]   */
-        phi_h,                              /* phi [rad]   */
-        w_h                                 /* w   [rad/s] */
+    const float x[5] = {
+        motor_drv->position * M_PER_STEP,   /* p   [m]     rif. 0 (centro)  */
+        motor_drv->fcurrent * M_PER_STEP,   /* v   [m/s]   rif. 0           */
+        phi_h,                              /* phi [rad]   rif. 0 (upright) */
+        w_h,                                /* w   [rad/s] rif. 0           */
+        z_int                               /* z   [m*s]   integrale di p   */
     };
 
     /* ---------------------------------------------------------------------- */
-    /* 7. Legge di controllo u = -K x  [m/s^2]                                 */
+    /* 7. Legge di controllo u = -K x  [m/s^2]  (K = [Kp Ki], x aumentato)     */
     /* ---------------------------------------------------------------------- */
     float u = 0.0f;
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 5; i++) {
         u -= K[i] * x[i];
     }
 
     /* ---------------------------------------------------------------------- */
     /* 8. Saturazione dell'accelerazione: motor_acc limita solo la velocita'.  */
     /* ---------------------------------------------------------------------- */
-    if (u >  LQR_ACC_MAX) u =  LQR_ACC_MAX;
-    if (u < -LQR_ACC_MAX) u = -LQR_ACC_MAX;
+    uint8_t saturo = 0u;
+    if (u >  LQR_ACC_MAX) { u =  LQR_ACC_MAX; saturo = 1u; }
+    if (u < -LQR_ACC_MAX) { u = -LQR_ACC_MAX; saturo = 1u; }
 
     /* ---------------------------------------------------------------------- */
-    /* 9. Uscita: m/s^2 -> impulsi/s^2 (UNA sola divisione, niente *32:         */
-    /*    il /32 dei microstep e' gia' dentro M_PER_STEP).                     */
+    /* 9. Aggiornamento dell'integratore (Eulero):  z(k+1) = z(k) + ts * p(k)  */
+    /*    Anti-windup: non integra mentre il comando e' saturo e |z| e'        */
+    /*    comunque limitato a LQR_Z_MAX.                                       */
+    /* ---------------------------------------------------------------------- */
+    if (!saturo) {
+        z_int += ts * x[0];
+    }
+    if (z_int >  LQR_Z_MAX) z_int =  LQR_Z_MAX;
+    if (z_int < -LQR_Z_MAX) z_int = -LQR_Z_MAX;
+
+    /* ---------------------------------------------------------------------- */
+    /* 10. Uscita: m/s^2 -> impulsi/s^2 (UNA sola divisione, niente *32:        */
+    /*     il /32 dei microstep e' gia' dentro M_PER_STEP).                    */
     /* ---------------------------------------------------------------------- */
     *acc = u / M_PER_STEP;
 
-    /* Debug */
-    lqr_phi_stima = phi_h;
-    lqr_w_stima   = w_h;
-    lqr_u         = u;
+    /* ---------------------------------------------------------------------- */
+    /* Debug.                                                                  */
+    /* lqr_offset_conteggi: offset dell'encoder stimato dall'integratore.      */
+    /* A regime K3*offset + K5*z = 0  ->  offset = -K5*z/K3. Ha senso solo     */
+    /* dopo che il carrello si e' assestato al centro (decine di secondi).     */
+    /* ---------------------------------------------------------------------- */
+    lqr_phi_stima       = phi_h;
+    lqr_w_stima         = w_h;
+    lqr_u               = u;
+    lqr_z               = z_int;
+    lqr_offset_conteggi = (-LQR_K5 * z_int / LQR_K3) / q_enc;
 }

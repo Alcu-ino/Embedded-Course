@@ -1,13 +1,15 @@
 /*
  * lqr.h
  *
- *  LQR per pendolo inverso su carrello, comando in accelerazione.
+ *  LQR con azione integrale per pendolo inverso su carrello, comando in
+ *  accelerazione.
  *
- *  Stato (unita' SI, le stesse del modello MATLAB):
+ *  Stato aumentato (unita' SI, le stesse del modello MATLAB):
  *      x[0] = p   [m]      posizione carrello (0 = centro corsa, dall'homing)
  *      x[1] = v   [m/s]    velocita' carrello
  *      x[2] = phi [rad]    scostamento dalla verticale alta
  *      x[3] = w   [rad/s]  velocita' angolare
+ *      x[4] = z   [m*s]    integrale della posizione carrello (riferimento 0)
  *
  *  Legge di controllo:  u = -K x   [m/s^2]
  *  Uscita per motor_acc():  u / M_PER_STEP   [impulsi/s^2]
@@ -30,13 +32,25 @@
 #define M_PER_STEP   ((0.0314159f * 0.005f) / 32.0f)
 
 /* ------------------------------------------------------------------------ */
-/*  Guadagni (da MATLAB: lqr sul modello con u = accelerazione carrello)    */
+/*  Guadagni (da MATLAB, pendolo_lqr_offset.m: lqr sul sistema aumentato    */
+/*  [A 0; C 0] con C = [1 0 0 0], convertiti in accelerazione carrello)     */
+/*  Vanno aggiornati SEMPRE tutti e cinque insieme.                         */
 /* ------------------------------------------------------------------------ */
-#define LQR_K1   (-22.3607f)    /* su p   [m]     */
-#define LQR_K2   (-82.6947f)    /* su v   [m/s]   */
-#define LQR_K3   (-413.0806f)   /* su phi [rad]   */
-#define LQR_K4   (-105.5085f)    /* su w   [rad/s] */
+#define LQR_L      0.7056f
+#define LQR_K1     (-14.9748f)   /* su p   [m]     */
+#define LQR_K2     (-13.8909f)   /* su v   [m/s]   */
+#define LQR_K3     (-75.7733f)   /* su phi [rad]   */
+#define LQR_K4     (-20.2112f)   /* su w   [rad/s] */
+#define LQR_K5     (-4.4721f)   /* su z   [m*s]   */
+#define LQR_Z_MAX  (1.7889f)   /* [m*s] = LQR_ACC_MAX/|K5| */
+
+/* Limite di |z| [m*s] (anti-windup) = LQR_ACC_MAX / |LQR_K5|:
+   il valore di z che da solo saturerebbe il comando. */
+#define LQR_Z_MAX          (1.7889f)
+
+/* Zona morta dello stimatore, in conteggi dell'encoder */
 #define LQR_DZ_CONTEGGI    0.5f
+
 /* ------------------------------------------------------------------------ */
 /*  Taratura                                                                */
 /* ------------------------------------------------------------------------ */
@@ -49,7 +63,8 @@
 
 /* Accelerazione massima comandata [m/s^2].
    motor_acc() limita solo la VELOCITA': senza questo limite l'LQR puo'
-   chiedere decine di m/s^2 e lo stepper perde passi. */
+   chiedere decine di m/s^2 e lo stepper perde passi.
+   Se la si cambia, aggiornare anche LQR_Z_MAX. */
 #define LQR_ACC_MAX        8.0f
 
 /* ------------------------------------------------------------------------ */
@@ -69,13 +84,19 @@
 #define OSS_ZETA           0.8f
 
 /* Variabili di debug (leggibili nel Live Expressions di CubeIDE) */
-extern volatile float lqr_phi_stima;   /* [rad]   */
-extern volatile float lqr_w_stima;     /* [rad/s] */
-extern volatile float lqr_u;           /* [m/s^2] ultimo comando */
+extern volatile float lqr_phi_stima;        /* [rad]   */
+extern volatile float lqr_w_stima;          /* [rad/s] */
+extern volatile float lqr_u;                /* [m/s^2] ultimo comando */
+extern volatile float lqr_z;                /* [m*s]   stato integrale */
+extern volatile float lqr_offset_conteggi;  /* offset encoder stimato da z
+                                               [conteggi]; valido a regime */
 
 /* Da chiamare a frequenza Fs (ISR di TIM1), DOPO update_Encoder()
    e motor_aggiorna_posizione(). In uscita: acc in impulsi/s^2 per motor_acc(). */
 void lqr_controller(Encoder_HandleTypeDef *encoder, motor_drv_t *motor_drv, float *acc);
+
+/* Da chiamare quando l'LQR viene abbandonato (pendolo fuori finestra):
+   alla prossima chiamata stimatore e integratore ripartono da capo. */
 void lqr_reset(void);
 
 #endif /* LQR_H */
