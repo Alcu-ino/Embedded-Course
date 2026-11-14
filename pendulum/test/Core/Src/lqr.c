@@ -37,6 +37,7 @@ static float wrap_pi(float a)
 {
     return atan2f(sinf(a), cosf(a));
 }
+void lqr_reset(void) { avviato = 0u; };
 
 void lqr_controller(Encoder_HandleTypeDef *encoder, motor_drv_t *motor_drv, float *acc)
 {
@@ -56,15 +57,14 @@ void lqr_controller(Encoder_HandleTypeDef *encoder, motor_drv_t *motor_drv, floa
     /*    Lo stimatore parte dalla misura; per la velocita' si usa la derivata */
     /*    grezza dell'encoder (rumorosa, ma lo stimatore la corregge in ~0.1 s).*/
     /* ---------------------------------------------------------------------- */
-    const uint32_t t_ora = HAL_GetTick();
-    if (!avviato || (t_ora - t_prec) > LQR_RIAGGANCIO_MS) {
+
+    if (!avviato) {
         phi_h   = phi_mis;
         w_h     = LQR_VERSO_ANGOLO * encoder->w;
         v_prec  = motor_drv->fcurrent;
         avviato = 1u;
     }
-    t_prec = t_ora;
-
+    
     /* ---------------------------------------------------------------------- */
     /* 3. Accelerazione REALMENTE applicata al carrello nell'ultimo periodo    */
     /*    [m/s^2]. Si ricava dalla variazione di velocita' prodotta da         */

@@ -68,10 +68,6 @@
 #define OSS_W0             15.0f     /* [rad/s] */
 #define OSS_ZETA           0.8f
 
-/* Se tra due chiamate passano piu' di questi ms, l'LQR era spento:
-   lo stimatore riparte dalla misura (ingresso nella finestra 165-195). */
-#define LQR_RIAGGANCIO_MS  7u
-
 /* Variabili di debug (leggibili nel Live Expressions di CubeIDE) */
 extern volatile float lqr_phi_stima;   /* [rad]   */
 extern volatile float lqr_w_stima;     /* [rad/s] */
@@ -80,5 +76,6 @@ extern volatile float lqr_u;           /* [m/s^2] ultimo comando */
 /* Da chiamare a frequenza Fs (ISR di TIM1), DOPO update_Encoder()
    e motor_aggiorna_posizione(). In uscita: acc in impulsi/s^2 per motor_acc(). */
 void lqr_controller(Encoder_HandleTypeDef *encoder, motor_drv_t *motor_drv, float *acc);
+void lqr_reset(void);
 
 #endif /* LQR_H */
